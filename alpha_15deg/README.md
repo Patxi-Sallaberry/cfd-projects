@@ -49,6 +49,14 @@ Distribution de pression statique sur le profil à α = 15°, convergence obtenu
 
 ![Coefficient de traînée Cd](naca0012_cd_alpha15.png)
 
+### Visualisation des lignes de courant
+
+Superposition des pathlines (colorées par vitesse magnitude) et du contour de pression statique sur le profil à α = 15°.
+
+![Streamlines et pression — α = 15°](streamlines_alpha15.png)
+
+On observe clairement l'accélération du flux sur l'extrados (rouge, ~43 m/s) et le ralentissement en aval du bord de fuite. Les lignes de courant suivent bien la courbure du profil sans décollement visible, ce qui est cohérent avec un angle d'attaque de 15° sur un NACA 0012 symétrique à Re ≈ 400 000 — proche du décrochage mais pas encore décollé à ce niveau de maillage.
+
 ---
 
 ## Ce que j'ai appris
@@ -77,6 +85,10 @@ Le Cd obtenu (~0.12) est environ 5 à 6 fois supérieur à la valeur théorique 
 
 La convergence en moins de 70 itérations est rapide mais pas nécessairement un signe de qualité — elle peut indiquer que le maillage est trop grossier pour résoudre les gradients fins de l'écoulement. Le résidu de continuité (~1e-3) n'atteint pas le critère standard de 1e-4 à 1e-6.
 
+### Lignes de courant
+
+Les streamlines confirment qualitativement le comportement attendu : pas de décollement massif visible à α=15°, accélération nette sur l'extrados, sillage étroit en aval. Cela reste cohérent avec la physique, même si le maillage grossier lisse les gradients réels.
+
 ### Ce qu'il faudrait améliorer
 
 - Raffiner le maillage à 500k+ cellules avec y+ ≈ 1 sur l'aile pour k-omega SST
@@ -86,7 +98,7 @@ La convergence en moins de 70 itérations est rapide mais pas nécessairement un
 
 ### Ce qui est correct
 
-Malgré ces limitations, la physique qualitative est bien capturée : le gradient de pression entre intrados et extrados est cohérent, la convergence est stable, et la méthodologie complète (géométrie → maillage → setup → résultats) est maîtrisée. Pour un premier projet CFD sur ANSYS Fluent, les objectifs pédagogiques sont atteints.
+Malgré ces limitations, la physique qualitative est bien capturée : le gradient de pression entre intrados et extrados est cohérent, la convergence est stable, et la méthodologie complète (géométrie → maillage → setup → résultats) est maîtrisée. Les streamlines renforcent cette conclusion en montrant un écoulement attaché et bien structuré autour du profil. Pour un premier projet CFD sur ANSYS Fluent, les objectifs pédagogiques sont atteints.
 
 ---
 
@@ -99,4 +111,3 @@ Simulation pour α = 0°, 5° et 10° pour obtenir la polaire complète Cl/Cd = 
 | 0° | 30.00 | 0.00 |
 | 5° | 29.89 | -2.61 |
 | 10° | 29.54 | -5.21 |
-| 15° | 28.98 | -7.76 |
