@@ -1,0 +1,10 @@
+# NACA 0012 - resultats CFD (ANSYS Fluent 2026 R1, turbulence k-omega SST)
+# Conditions de reference : V_inf = 30 m/s, corde = 0.20 m, span = 0.30 m, rho = 1.225 kg/m3
+# Ux, Uy  : composantes de la vitesse amont imposee a l'entree (reference). On a Ux = 30*cos(a), Uy = -30*sin(a).
+# lift_N  : force de PORTANCE sur le profil [N] -- A REMPLIR depuis Fluent : Reports -> Forces (direction perpendiculaire a V_inf)
+# drag_N  : force de TRAINEE  sur le profil [N] -- A REMPLIR depuis Fluent : Reports -> Forces (direction parallele a V_inf)
+alpha_deg,Ux,Uy,lift_N,drag_N
+0,30.00,0.00,,
+5,29.89,-2.61,,
+10,29.54,-5.21,,
+15,28.98,-7.76,,

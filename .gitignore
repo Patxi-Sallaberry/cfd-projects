@@ -15,5 +15,8 @@ env/
 # Data outputs (generated)
 piml/*/outputs/*.png
 
+# Fichiers de donnees d'exemple / placeholder (jamais de fausses donnees dans le repo)
+*_EXAMPLE.csv
+
 # OS
 .DS_Store
