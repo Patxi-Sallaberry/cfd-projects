@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# Data outputs (generated)
+piml/*/outputs/*.png
+
+# OS
+.DS_Store
