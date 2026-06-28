@@ -11,6 +11,7 @@ première fois, puis à utiliser comme référence.
 4. [CPU / GPU (device)](#4-cpu--gpu)
 5. [Autograd : la dérivation automatique](#5-autograd)
 6. [Tout à la main : une régression linéaire](#6-tout-à-la-main)
+6b. [La descente de gradient en profondeur](#6b-la-descente-de-gradient-en-profondeur)
 7. [Construire un modèle : nn.Module](#7-construire-un-modèle)
 8. [Catalogue de couches](#8-catalogue-de-couches)
 9. [Fonctions d'activation](#9-fonctions-dactivation)
@@ -197,6 +198,98 @@ print(w.item(), b.item())                 # ~2.0, ~1.0
 ```
 **Tout le deep learning est là.** Les couches `nn` et les optimiseurs ne font qu'automatiser et
 généraliser ces 6 lignes.
+
+---
+
+## 6b. La descente de gradient en profondeur
+
+Cette section décortique le "pourquoi" mathématique de la boucle ci-dessus. C'est le noyau à
+maîtriser : tout réseau, même à des millions de paramètres, fonctionne **exactement** comme ça.
+
+### Les maths : d'où viennent les gradients
+
+La loss MSE, en fonction des paramètres `w` et `b` :
+
+$$L(w,b) = \frac{1}{N}\sum_{i=1}^{N} \big(\underbrace{w x_i + b}_{\text{pred}_i} - y_i\big)^2$$
+
+En dérivant (règle de la chaîne) on obtient les gradients :
+
+$$\frac{\partial L}{\partial w} = \frac{1}{N}\sum_i 2\,(\text{pred}_i - y_i)\,x_i
+\qquad
+\frac{\partial L}{\partial b} = \frac{1}{N}\sum_i 2\,(\text{pred}_i - y_i)$$
+
+C'est **exactement** ce que `loss.backward()` calcule et range dans `w.grad` et `b.grad`. Autograd
+n'est rien d'autre que cette dérivation, faite automatiquement en parcourant le graphe de calcul à
+l'envers (`mean ← carré ← soustraction ← (×, +) ← w, b`).
+
+**Interprétation** : le gradient est la **pente** de l'erreur. S'il est positif, augmenter le
+paramètre augmente l'erreur → il faut le **diminuer**. D'où la mise à jour :
+
+$$w \leftarrow w - \text{lr}\cdot\frac{\partial L}{\partial w}$$
+
+Le signe `−` = on va dans le sens **opposé** à la pente = on descend le bol. C'est *descendre une
+colline en suivant la plus grande pente*.
+
+### Lire une convergence
+
+Trajectoire typique (données `y = 2x + 1` + bruit 0.1, `lr = 0.1`) :
+
+| epoch | loss | w | b | dL/dw |
+|---|---|---|---|---|
+| 0 | 1.1736 | 1.323 | 0.000 | −0.46 |
+| 20 | 0.0199 | 1.834 | 0.992 | −0.11 |
+| 60 | 0.0105 | 1.990 | 1.004 | −0.007 |
+| 200 | 0.0105 | 2.000 | 1.004 | ≈ 0 |
+
+À lire : les paramètres glissent vers la vraie solution (2, 1), la loss chute, et les **gradients
+tendent vers 0**. Gradient nul = on est au fond du bol = plus de mise à jour = **convergence**.
+
+### Le plancher de bruit (noise floor)
+
+La loss se stabilise à **0.0105**, pas à 0. Pourquoi ? On a ajouté un bruit d'écart-type 0.1, et
+`0.1² = 0.01 ≈ 0.0105`. **La loss ne peut pas descendre sous la variance du bruit** : le modèle a
+parfaitement appris la loi `2x+1`, le reste est du bruit irréductible.
+
+> Conséquence : **un modèle ne bat jamais le bruit de ses données**. Si tes données sont *sans*
+> bruit (ex. une polaire XFOIL propre), la loss peut tendre vers 0 et R² → 1. Avec de vraies mesures
+> bruitées, il reste toujours une loss résiduelle — et c'est normal, pas un défaut du modèle.
+
+### L'effet du learning rate (`lr`)
+
+Le `lr` est l'hyperparamètre **n°1**. Même problème, 200 epochs, trois valeurs :
+
+| lr | comportement | après 200 epochs |
+|---|---|---|
+| 0.001 | pas trop petits → **rampe** | w=1.41, b=0.33, loss=0.58 *(pas convergé)* |
+| 0.1 | bien dosé → **converge** | w=2.00, b=1.00, loss=0.0105 ✓ |
+| 1.5 | pas trop grands → **diverge** | loss : 1e6 → 1e30 → `inf` → `nan` 💥 |
+
+```
+trop petit  ──────  IDÉAL  ──────  trop grand
+(rampe)            (converge)       (diverge → nan)
+```
+
+- **Trop grand** : on saute par-dessus le minimum et on rebondit de plus en plus haut → explosion.
+  Une fois un `nan` apparu, il contamine tout (`nan + x = nan`).
+- **Trop petit** : on avance, mais beaucoup trop lentement.
+- **Régler en pratique** : pars de `1e-3`. La loss explose → divise le `lr` par 10 ; elle bouge à
+  peine → multiplie par 10. (Adam est plus tolérant, mais le principe tient.)
+
+> 🐞 **Réflexe debugging** : loss = `nan` → suspecte d'abord un **`lr` trop grand**.
+
+### Le lien avec les vrais réseaux
+
+Ces 6 lignes faites main = ce que `nn` + optimiseur automatisent :
+
+| À la main (section 6) | Avec `nn` + optimiseur |
+|---|---|
+| `w`, `b` déclarés à la main | `model.parameters()` (des milliers d'un coup) |
+| `pred = X*w + b` | `pred = model(X)` (plusieurs couches) |
+| `w -= lr * w.grad` | `opt.step()` (+ Adam adapte le pas) |
+| `w.grad.zero_()` | `opt.zero_grad()` |
+
+`loss.backward()` est **identique** dans les deux cas : autograd gère 2 ou 2 millions de paramètres
+de la même manière.
 
 ---
 
