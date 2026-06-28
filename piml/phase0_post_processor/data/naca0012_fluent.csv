@@ -1,15 +1,16 @@
 # NACA 0012 - resultats CFD ANSYS Fluent 2026 R1 (k-omega SST, steady, Re~4e5)
 # Conditions : V_inf = 30 m/s, corde = 0.20 m, span = 0.30 m, rho = 1.225 kg/m3, Area_ref = 0.06 m2
-# Ux, Uy : vitesse amont imposee a l'entree (Ux = 30*cos(a), Uy = -30*sin(a)).
+# Convention (iteration 2) : Uy > 0 = alpha > 0 ; Lift=(sin a, cos a, 0), Drag=(cos a, -sin a, 0).
 #
-# /!\ RUN DEFECTUEUX (conserve pour le diagnostic V&V, voir README) :
-#   1) Force Vectors inverses : Drag utilise (cos a, +sin a) au lieu de (cos a, -sin a)
-#      -> incoherent avec l'ecoulement d'entree (Uy<0) -> Cl negatif, Cd decroissant.
-#   2) Blocage de domaine : y in [-0.3, 0.3] = +/-1.5 corde -> portance etouffee, trainee gonflee.
-#   3) Maillage 56k sans couches limites -> y+ non resolu, continuity ~9e-4 (> 1e-4 standard).
-# Donnees NON exploitables pour l'entrainement Phase 1. A refaire (cf. docs/fluent_reports_NACA0012.md).
-alpha_deg,Ux,Uy,Cl_cfd,Cd_cfd,iter_conv,continuity_res
-0,30.00,0.00,-0.00665,0.1957,42,9.28e-04
-5,29.89,-2.61,-0.0884,0.1875,57,9.11e-04
-10,29.54,-5.21,-0.1692,0.1634,63,6.96e-04
-15,28.98,-7.76,-0.2437,0.1229,69,6.68e-04
+# ITERATION 2 - Force Vectors corriges : le SIGNE du Cl est desormais bon (positif, croissant) ✓
+# MAIS magnitudes encore non-physiques (voir README) :
+#   - Cl ~5-8x trop faible (portance etouffee par le blocage de domaine y in [-0.3,0.3] = +/-1.5 corde)
+#   - Cd ~0.13-0.20, soit ~20-25x trop eleve, ET decroissant avec alpha (impossible)
+#   - Cd(0deg)=0.1955 ~= run precedent 0.1957 -> a alpha=0 aucune rotation de Force Vector :
+#     preuve que la trainee vient du blocage + maillage 56k sans couches limites, pas du Force Vector.
+# Donnees encore NON exploitables pour Phase 1. A refaire avec domaine +/-10-20 cordes + inflation (y+~1).
+alpha_deg,Ux,Uy,Cl_cfd,Cd_cfd
+0,30.00,0.00,-0.00665,0.1955
+5,29.89,2.61,0.0751,0.1886
+10,29.54,5.21,0.1563,0.1655
+15,28.98,7.76,0.2311,0.1260

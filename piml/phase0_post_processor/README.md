@@ -13,37 +13,39 @@ quantified. This phase is the data foundation for the Phase 1 surrogate models.
 
 ---
 
-## V&V result — my first Fluent run is non-physical (and why that's useful)
+## V&V result — debugging my Fluent setup, iteration by iteration
 
 ![NACA 0012 — reference vs my Fluent run](results/figures/naca0012_vv_polar.png)
 
-| α | Cl (ref) | Cl (mine) | Cd (ref) | Cd (mine) | L/D (ref) | L/D (mine) |
+**Iteration 2** (Force Vectors corrected) vs the reference polar:
+
+| α | Cl (ref) | Cl (mine) | ΔCl | Cd (ref) | Cd (mine) | ΔCd |
 |---|---|---|---|---|---|---|
-| 0° | ≈ 0 | −0.007 | 0.007 | 0.196 | ≈ 0 | −0.03 |
-| 5° | +0.623 | −0.088 | 0.011 | 0.188 | 56.4 | −0.47 |
-| 10° | +1.035 | −0.169 | 0.021 | 0.163 | 49.9 | −1.04 |
-| 15° | +1.219 | −0.244 | 0.052 | 0.123 | 23.6 | −1.98 |
+| 0° | ≈ 0 | −0.007 | — | 0.007 | 0.196 | +2792 % |
+| 5° | +0.623 | +0.075 | −88 % | 0.011 | 0.189 | +1607 % |
+| 10° | +1.035 | +0.156 | −85 % | 0.021 | 0.166 | +697 % |
+| 15° | +1.219 | +0.231 | −81 % | 0.052 | 0.126 | +144 % |
 
-My run is qualitatively wrong: a **symmetric** airfoil cannot have negative, growing-negative
-lift, and drag cannot *decrease* with incidence. The V&V comparison makes the three root
-causes explicit:
+### Iteration 1 → 2: what the Force Vector fix changed
+My first run reported **negative, growing-negative Cl** — impossible on a *symmetric* airfoil.
+Root cause: the drag direction was `(cos α, +sin α)` while the inlet flow is `(cos α, ∓sin α)`,
+so the `sin α` sign was inverted. Fixing it to `drag = (cos α, −sin α, 0)`,
+`lift = (sin α, cos α, 0)` (see [`docs/fluent_reports_NACA0012.md`](../../docs/fluent_reports_NACA0012.md))
+**restored the correct Cl sign and trend** ✓.
 
-1. **Inverted Force Vectors.** My drag direction was set to `(cos α, +sin α)` while the inlet
-   flow is `(cos α, −sin α)` (Uy < 0). Drag *must* point along the flow → the sign of `sin α`
-   was flipped on both lift and drag, producing the negative Cl and the inverted Cd trend.
-   Fix: `drag = (cos α, −sin α, 0)`, `lift = (sin α, cos α, 0)` — see
-   [`docs/fluent_reports_NACA0012.md`](../../docs/fluent_reports_NACA0012.md).
-2. **Domain blockage.** The fluid domain `y ∈ [−0.3, 0.3]` is only ±1.5 chords tall, so the
-   airfoil chokes the channel: lift fails to develop and drag is inflated (Cd ≈ 0.2 vs ≈ 0.007).
-   Even re-projecting the forces onto the correct axes leaves Cl negative — so the Force Vector
-   is not the only issue.
-3. **Coarse mesh.** 56k cells, no inflation layers, y⁺ unresolved, continuity residual ≈ 9·10⁻⁴
-   (above the 10⁻⁴ standard). Drag is the most sensitive quantity to this.
+### What is still wrong (and the proof it isn't the Force Vector)
+The magnitudes remain non-physical: **Cl is 5–8× too low** and **Cd is ~20–25× too high and still
+*decreases* with α** (impossible — drag grows with incidence). The smoking gun is **α = 0°**, where
+there is *no* Force Vector rotation at all: `Cd(0°) = 0.1955`, essentially unchanged from the
+flawed run's `0.1957`. So the huge drag was never about the Force Vector — it comes from:
 
-**Conclusion:** this data is *not* usable for Phase 1 training, and is kept only as a documented
-V&V diagnostic. The simulation will be re-run with corrected Force Vectors, a domain of ±10–20
-chords, and an inflation-layer mesh (y⁺ ≈ 1). Raw run artifacts (convergence / residual plots,
-original report) are archived under [`results/figures/fluent_runs/`](results/figures/fluent_runs).
+1. **Domain blockage.** `y ∈ [−0.3, 0.3]` is only ±1.5 chords tall: the airfoil chokes the channel,
+   suppressing lift and inflating drag.
+2. **Coarse mesh.** 56k cells, no inflation layers, y⁺ unresolved, continuity ≈ 9·10⁻⁴ (> 10⁻⁴).
+
+**Conclusion:** still *not* usable for Phase 1 training — kept as a documented V&V iteration. Next
+run: domain ±10–20 chords + inflation-layer mesh (y⁺ ≈ 1). Raw artifacts archived under
+[`results/figures/fluent_runs/`](results/figures/fluent_runs).
 
 ---
 

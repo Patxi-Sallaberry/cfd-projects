@@ -81,7 +81,7 @@ def main():
         print("Comparaison Fluent vs reference :")
         print(cmp[["alpha_deg", "Cl_ref", "Cl_cfd", "dCl_%",
                    "Cd_ref", "Cd_cfd", "dCd_%", "LD_ref", "LD_cfd"]].round(3).to_string(index=False))
-        print("\n/!\\ Ecarts massifs et signes opposes -> run defectueux (voir README).")
+        print("\n/!\\ Ecarts massifs (Cl trop faible, Cd trop eleve) -> run encore non valide (voir README).")
     else:
         print("[i] Pas de donnees Fluent exploitables : on trace uniquement la reference.")
 
