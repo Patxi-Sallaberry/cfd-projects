@@ -622,6 +622,47 @@ Remèdes :
 > D'où l'importance de `model.train()` / `model.eval()` : ils activent/désactivent dropout et
 > batchnorm. **Toujours** passer en `eval()` pour évaluer ou prédire.
 
+### L'idée centrale
+
+Régulariser = **sacrifier un peu d'ajustement sur le train pour gagner en généralisation**. Sur le
+cas overfitté du §12 (gros modèle, 14 points, bruit 0.3, noise floor = 0.09) :
+
+| Config | train | val |
+|---|---|---|
+| Baseline (gros, aucune reg) | **0.0000** | 0.097 |
+| + `weight_decay=1e-2` | 0.0569 | **0.0915** |
+| + `dropout=0.2` | 0.0291 | 0.128 |
+| petit modèle (1-8-1) | 0.0033 | 0.143 |
+
+Le `weight_decay` fait **remonter** la train_loss (il empêche de mémoriser le bruit) et **descendre**
+la val_loss au noise floor : l'écart train/val se ferme → modèle sain.
+
+> ⚠️ **La régularisation n'est pas magique** : ici dropout et "petit modèle" ont *empiré* la val
+> (dropout perturbe trop un petit réseau ; 8 neurones sous-apprennent). **Le ML est empirique** : on
+> essaie, on **valide**, on garde ce qui marche.
+
+### Sous-apprentissage vs sur-apprentissage
+
+```
+modèle trop petit          juste            modèle trop gros
+(underfit : val haute)   (val minimale)   (overfit : ecart train/val)
+```
+But : trouver la **capacité** qui minimise la val_loss.
+
+### Early stopping (le réflexe à coder)
+
+```python
+best_val, best_state = float("inf"), None
+for epoch in range(n_epochs):
+    ...                                   # 1) entrainement (train + backward + step)
+    val = evaluate()                      # 2) validation
+    if val < best_val:                    # 3) on memorise le MEILLEUR modele
+        best_val, best_state = val, {k: v.clone() for k, v in model.state_dict().items()}
+model.load_state_dict(best_state)         # 4) on restaure le meilleur (pas le dernier)
+```
+On garde le modèle au **minimum de la val_loss**, pas celui de la dernière epoch (qui peut déjà
+réoverfitter).
+
 ---
 
 ## 15. Sauvegarder / recharger
