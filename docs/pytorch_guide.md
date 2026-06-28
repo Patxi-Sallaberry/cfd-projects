@@ -388,6 +388,48 @@ model = Surrogate()
   directement).
 - `model.parameters()` donne tous les poids ; `sum(p.numel() for p in model.parameters())` les compte.
 
+### Une couche n'est que `w` et `b`
+
+`nn.Linear` ne fait rien de plus que la formule de la section 6 — elle range `w` (`.weight`) et
+`b` (`.bias`) pour toi :
+```python
+lin = nn.Linear(1, 1)
+x = torch.tensor([[2.0]])
+assert torch.allclose(lin(x), x @ lin.weight.T + lin.bias)   # vrai !
+```
+Ces poids sont des **`nn.Parameter`** : des **tenseurs-feuilles** (section 5) avec
+`requires_grad=True`, qui en plus **s'enregistrent automatiquement** dès qu'on les assigne comme
+attribut d'un `nn.Module`. C'est ce qui permet à `model.parameters()` de tous les retrouver, et donc
+à `Adam(model.parameters())` de tous les optimiser.
+
+> 📐 `nn.Linear(in, out)` stocke `weight` en forme **`(out, in)`** et calcule `x @ Wᵀ + b`.
+
+### Inspecter un modèle
+
+```python
+sum(p.numel() for p in model.parameters())     # nombre total de parametres
+for name, p in model.named_parameters():        # liste detaillee
+    print(name, tuple(p.shape), p.requires_grad)
+# fc1.weight (8,1) | fc1.bias (8,) | fc2.weight (2,8) | fc2.bias (2,)
+```
+Après un `loss.backward()`, **chaque** paramètre a reçu son `.grad` → prêt pour `opt.step()`.
+
+### `model(x)` vs `model.forward(x)`
+
+Appelle **toujours** `model(x)`. Le `__call__` exécute `forward` **et** d'éventuels *hooks* (utilisés
+par certaines fonctionnalités). Appeler `forward` directement les court-circuite.
+
+### `Sequential` ou `Module` : lequel ?
+
+| | Quand l'utiliser |
+|---|---|
+| `nn.Sequential` | Empilement **linéaire** simple (un MLP). Code court. |
+| `nn.Module` (classe) | Dès qu'il faut **plus** : plusieurs entrées, branches, connexions résiduelles, logique conditionnelle. Indispensable pour les **PINNs** (Phase 2). |
+
+Les deux produisent le même modèle à architecture égale (mêmes paramètres). Le surrogate de la
+Phase 1 (`1→64→64→2`) est exactement cette mécanique, en plus large — aucune notion nouvelle par
+rapport aux sections 5–6.
+
 ---
 
 ## 8. Catalogue de couches
