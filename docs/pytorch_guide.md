@@ -164,9 +164,68 @@ with torch.no_grad():
     pred = model(x)             # pas de graphe construit
 ```
 
-Points clés :
-- Les gradients **s'accumulent** → il faut les remettre à zéro à chaque étape (`zero_grad`).
-- `.detach()` sort un tenseur du graphe (utile pour logger une valeur sans gradient).
+### Le graphe de calcul (`grad_fn`)
+
+Quand tu calcules sur un tenseur `requires_grad=True`, PyTorch enregistre chaque opération dans un
+**graphe de calcul**. Chaque résultat porte un `grad_fn` (la fonction qui sait le dériver).
+
+```python
+x = torch.tensor(2.0, requires_grad=True)
+y = x**2 + 3*x + 1
+print(y.grad_fn)        # <AddBackward0> : derniere op = addition
+y.backward()
+print(x.grad)           # 2x+3 = 7.0
+```
+Graphe :
+```
+x ──► x²  ──┐
+x ──► 3·x ──┼──► somme ──► y
+       1  ──┘
+```
+`backward()` parcourt ce graphe **à l'envers** en multipliant les dérivées locales (règle de la
+chaîne) et dépose le résultat dans le `.grad` des feuilles. Autograd = la dérivation analytique,
+automatisée.
+
+### L'accumulation des gradients (la raison de `zero_grad`)
+
+Chaque `backward()` **additionne** dans `.grad`, il ne remplace pas :
+```python
+w = torch.tensor(1.0, requires_grad=True)
+for i in range(3):
+    (3 * w).backward()
+    print(w.grad)        # 3.0, puis 6.0, puis 9.0  -> ca s'accumule !
+w.grad.zero_()           # -> remis a 0
+```
+D'où l'obligation de remettre à zéro à **chaque** itération d'entraînement (`w.grad.zero_()` ou
+`opt.zero_grad()`). L'accumulation est **voulue** (elle permet de cumuler des gradients sur
+plusieurs passes), mais c'est à toi de réinitialiser.
+
+> 🐞 Oublier `zero_grad()` = piège n°1 : les gradients des tours précédents polluent la mise à jour.
+
+### Feuille (leaf) vs non-feuille
+
+```python
+a = torch.tensor(2.0, requires_grad=True)   # feuille
+b = a * 5                                    # non-feuille (resultat d'op)
+print(a.is_leaf, b.is_leaf)                  # True False
+```
+- **Feuille** : un tenseur créé directement (tes **paramètres**). C'est là que `.grad` est stocké.
+- **Non-feuille** : un résultat d'opération (une activation). Possède un `grad_fn` ; son `.grad`
+  n'est pas conservé par défaut (économie de mémoire).
+
+### `no_grad` vs `detach`
+
+Les deux coupent le gradient, mais différemment :
+| | Portée | Usage |
+|---|---|---|
+| `with torch.no_grad():` | **contexte** (tout le bloc) | inférence/éval, mise à jour manuelle des poids |
+| `x.detach()` | **un tenseur** | stopper le gradient sur un chemin, logger une valeur |
+
+```python
+with torch.no_grad():
+    y = model(x)            # aucun graphe construit -> rapide, peu de memoire
+val = loss.detach().item()  # recuperer une valeur sans trainer le graphe
+```
 
 ---
 
