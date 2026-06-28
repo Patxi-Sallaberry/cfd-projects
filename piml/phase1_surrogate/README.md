@@ -15,12 +15,12 @@ concept and every line of `src/train_surrogate.py`.
 
 ![Surrogate fit — Cl and Cd vs alpha](results/figures/surrogate_fit.png)
 
-| Output | Test RMSE | Test R² |
+| Output | Validation RMSE | Validation R² |
 |---|---|---|
-| Cl | 0.0008 | 1.000 |
-| Cd | 0.00002 | 1.000 |
+| Cl | 0.0017 | 1.000 |
+| Cd | 0.00006 | 1.000 |
 
-The surrogate reproduces the polar on **held-out test points** it never saw during training.
+The surrogate reproduces the polar on **held-out validation points** it never saw during training.
 
 > **Why so perfect?** The data is a smooth, noiseless function (a NeuralFoil/XFOIL polar), so a
 > tiny MLP fits it almost exactly. This is a *learning milestone*, not a hard ML problem — the real
@@ -29,6 +29,44 @@ The surrogate reproduces the polar on **held-out test points** it never saw duri
 > ⚠️ **Provenance.** Training data is an XFOIL-class prediction, *not* my own CFD (my Phase 0 Fluent
 > run was non-physical — see `../phase0_post_processor`). A clean, cited ground truth is the right
 > choice for learning the ML pipeline.
+
+---
+
+## Dynamique d'entraînement : validation & early stopping
+
+La boucle (v2) suit **deux loss par epoch** — train et validation — et conserve le **meilleur**
+modèle (early stopping). Concepts détaillés dans [`docs/pytorch_guide.md`](../../docs/pytorch_guide.md)
+§12 (boucle canonique) et §14 (régularisation).
+
+![Courbes d'apprentissage](results/figures/learning_curves.png)
+
+**Comment lire cette courbe :**
+- **train (bleu) et validation (orange) se superposent** → **aucun surapprentissage**. En cas
+  d'overfit, l'orange décrocherait *au-dessus* du bleu ; ici les données sont propres (sans bruit),
+  donc le modèle généralise parfaitement (R² = 1.000 en validation).
+- **Les pics réguliers** = **instabilité d'optimisation** : un `lr = 1e-2` un peu élevé (Adam,
+  full-batch) provoque des pas qui sur-corrigent ponctuellement, puis ça se rétablit. Ils
+  apparaissent dans les **deux** courbes en même temps → artefact d'optimisation, **pas** un overfit.
+  Pour les lisser : baisser le `lr` (ex. `3e-3`) ou ajouter un *scheduler*.
+- **Pourquoi l'early stopping sert ici** : on **mémorise les meilleurs poids** (val_loss minimale
+  ≈ 1.4·10⁻⁵) et on les **restaure** à la fin → le modèle livré n'est jamais celui d'un pic, même si
+  l'entraînement reste bruité. Illustration concrète de son intérêt.
+
+Pseudo-code de la boucle (le détail est dans le Bloc 5 plus bas) :
+```python
+best_val = inf
+for epoch in range(EPOCHS):
+    model.train();  opt.zero_grad()                    # 1) entrainement
+    loss = mse(model(Xtr), Ytr);  loss.backward();  opt.step()
+    model.eval()                                        # 2) validation (sans gradient)
+    with torch.no_grad():  vloss = mse(model(Xva), Yva)
+    if vloss < best_val:                                # 3) early stopping : garder le meilleur
+        best_val, best_state, patience = vloss, copie(model.state_dict()), 0
+    else:
+        patience += 1
+        if patience >= PATIENCE:  break                # val stagnante -> on arrete
+model.load_state_dict(best_state)                       # restaure le MEILLEUR (pas le dernier)
+```
 
 ---
 
@@ -70,7 +108,7 @@ seulement pour de **gros** modèles.
    données (89 paires α→Cl,Cd)
         │
         ▼
-   séparation train / test   ──►  20 % mis de côté pour vérifier la généralisation
+   séparation train (70%) / validation (30%)
         │
         ▼
    normalisation (centrer-réduire, ajustée sur le train)
@@ -79,11 +117,13 @@ seulement pour de **gros** modèles.
    modèle MLP  1→64→64→2   (~4400 paramètres à régler)
         │
         ▼
-   boucle d'entraînement (3000 epochs) :
-        forward → erreur (MSE) → rétropropagation → mise à jour (Adam)
+   boucle d'entraînement (jusqu'à 5000 epochs) :
+        [train] forward → MSE → rétropropagation → Adam
+        [val]   loss de validation (sans gradient)
+        [early stopping] on garde les meilleurs poids
         │
         ▼
-   évaluation sur le test : RMSE, R²
+   évaluation finale : RMSE, R² (sur la validation)
         │
         ▼
    inférence : donner un α, obtenir (Cl, Cd) instantanément
@@ -100,16 +140,17 @@ Y = df[["Cl", "Cd"]].values.astype("float32")    # sorties (N, 2)
 - `Y` = les **targets** (cibles) : Cl et Cd. Forme `(N, 2)`.
 - `float32` = flottants 32 bits, le format standard des réseaux (rapide, assez précis).
 
-### Bloc 2 — Séparation train / test
+### Bloc 2 — Séparation train / validation
 ```python
 idx = rng.permutation(N)
-n_test = int(0.2 * N)
-test_idx, train_idx = idx[:n_test], idx[n_test:]
+n_val = int(0.3 * N)
+val_idx, tr_idx = idx[:n_val], idx[n_val:]
 ```
-- On mélange les indices et on réserve **20 %** des points pour le **test**.
+- On mélange les indices et on réserve **30 %** des points pour la **validation**.
 - **Pourquoi c'est essentiel** : si on notait le modèle sur ce qu'il a appris, il pourrait avoir
-  appris **par cœur** sans généraliser (= **surapprentissage / overfitting**). Le test, *jamais vu
-  pendant l'entraînement*, mesure la **vraie** capacité de prédiction.
+  appris **par cœur** sans généraliser (= **surapprentissage / overfitting**). La validation, *jamais
+  vue pendant l'entraînement*, mesure la **vraie** capacité de prédiction — et sert d'aiguillage à
+  l'**early stopping**.
 
 ### Bloc 3 — Normalisation
 ```python
@@ -143,41 +184,57 @@ model = nn.Sequential(
 ### Bloc 4bis — Erreur et optimiseur
 ```python
 loss_fn = nn.MSELoss()
-opt = torch.optim.Adam(model.parameters(), lr=1e-2)
+opt = torch.optim.Adam(model.parameters(), lr=1e-2, weight_decay=1e-5)
 ```
 - `MSELoss` = **erreur quadratique moyenne** `moyenne((prédit − vrai)²)`, **le nombre à minimiser**.
 - `Adam` = l'**optimiseur** qui modifie les poids. `lr=1e-2` = **learning rate** (taille du pas).
+- `weight_decay=1e-5` = une **régularisation L2** légère (pénalise les gros poids). Faible ici car
+  les données sont propres ; c'est surtout une bonne habitude.
 
-### Bloc 5 — La boucle d'entraînement (le cœur)
+### Bloc 5 — La boucle d'entraînement (train + validation + early stopping)
 ```python
-for epoch in range(3000):
-    opt.zero_grad()             # 1. remet les gradients a zero
-    pred = model(Xtr_t)         # 2. forward : predit Cl, Cd
-    loss = loss_fn(pred, Ytr_t) # 3. mesure l'erreur
-    loss.backward()             # 4. backward : calcule les gradients
-    opt.step()                  # 5. met a jour les poids
+best_val, best_state, since_best = inf, None, 0
+for epoch in range(EPOCHS):
+    # (a) entrainement
+    model.train(); opt.zero_grad()
+    loss = loss_fn(model(Xtr_t), Ytr_t); loss.backward(); opt.step()
+    # (b) validation (sans gradient)
+    model.eval()
+    with torch.no_grad():
+        vloss = loss_fn(model(Xva_t), Yva_t).item()
+    # (c) early stopping : on memorise le meilleur modele
+    if vloss < best_val - 1e-7:
+        best_val, since_best = vloss, 0
+        best_state = {k: v.clone() for k, v in model.state_dict().items()}
+    else:
+        since_best += 1
+        if since_best >= PATIENCE: break
+model.load_state_dict(best_state)        # on restaure le MEILLEUR (pas le dernier)
 ```
-Une **epoch** = un passage. Répété 3000 fois :
-1. `zero_grad` : efface les gradients de l'itération précédente.
-2. **Forward pass** : on pousse α dans le réseau → prédiction (Cl, Cd).
-3. **Loss** : comparaison au vrai → un nombre d'erreur.
-4. **Backward = rétropropagation** : PyTorch calcule `∂loss/∂poids` pour chaque poids.
-5. `step` : Adam déplace chaque poids dans le sens qui réduit l'erreur.
+À chaque epoch, **deux temps** :
+1. **Entraînement** (`model.train()`) : les 5 étapes habituelles (zero_grad → forward → loss →
+   backward → step).
+2. **Validation** (`model.eval()` + `torch.no_grad()`) : on calcule juste la loss sur les points
+   réservés, **sans** backward ni mise à jour.
+3. **Early stopping** : si la `val_loss` bat son record, on **sauvegarde une copie** des poids
+   (`best_state`). Si elle stagne pendant `PATIENCE` epochs, on **arrête**. À la fin, on **restaure
+   le meilleur** modèle — pas le dernier (qui peut être sur un pic d'instabilité).
 
-La `loss` qui descend vers 0 = **preuve que le modèle apprend**.
+> `model.train()` / `model.eval()` changent le comportement de Dropout/BatchNorm (ici sans effet,
+> mais c'est l'habitude canonique).
 
-### Bloc 6 — Évaluation sur le test
+### Bloc 6 — Évaluation finale (sur la validation)
 ```python
 model.eval()
 with torch.no_grad():
-    Pte = denorm_y(model(Xte_t).numpy())
+    Pva = denorm_y(model(Xva_t).numpy())
 rmse = np.sqrt(np.mean((pred - true) ** 2))
 r2   = 1 - np.sum((pred - true) ** 2) / np.sum((true - true.mean()) ** 2)
 ```
 - `torch.no_grad()` : pas de gradients en évaluation → plus rapide.
 - `denorm_y` : retour aux vraies unités (Cl, Cd physiques).
 - **RMSE** = erreur typique en unités physiques ; **R²** = qualité d'ajustement (**1 = parfait**,
-  0 = pas mieux que la moyenne), calculé sur le **test** → mesure la généralisation.
+  0 = pas mieux que la moyenne), calculé sur la **validation** → mesure la généralisation.
 
 ### Bloc 7 — Inférence + figure
 ```python
@@ -194,8 +251,10 @@ p_dense = denorm_y(model(torch.tensor(norm_x(a_dense))).numpy())
 | **Apprentissage supervisé** | Apprendre à partir d'exemples *étiquetés* (entrée + bonne réponse). |
 | **Régression** | Prédire une valeur *continue* (vs classification = catégorie). |
 | **Feature / target** | Variable d'entrée / valeur à prédire. |
-| **Train / test** | Données d'apprentissage / réservées pour vérifier la généralisation. |
-| **Overfitting** | Le modèle apprend "par cœur" le train mais généralise mal. |
+| **Train / validation** | Données d'apprentissage / réservées pour mesurer la généralisation (et piloter l'early stopping). |
+| **Overfitting** | Le modèle apprend "par cœur" le train mais généralise mal (écart train ≪ val). |
+| **Early stopping** | Garder le modèle au minimum de la val_loss, pas celui de la dernière epoch. |
+| **Courbes d'apprentissage** | train_loss et val_loss tracées par epoch ; leur écart révèle l'overfit. |
 | **Normalisation** | Mettre les variables à la même échelle (moyenne 0, écart-type 1). |
 | **Data leakage** | Fuite d'info du test vers l'entraînement → performance faussée. |
 | **MLP** | Perceptron multicouche : un réseau de couches de neurones. |
@@ -219,9 +278,10 @@ p_dense = denorm_y(model(torch.tensor(norm_x(a_dense))).numpy())
 phase1_surrogate/
 ├── data/naca0012_surrogate_dataset.csv   # 89 pts, alpha -6..16, Re=4e5 (NeuralFoil)
 ├── src/make_dataset.py                    # regenerates the dataset
-├── src/train_surrogate.py                 # train + evaluate + plot
+├── src/train_surrogate.py                 # train/val loop + early stopping + plots
+├── results/figures/learning_curves.png    # train vs validation loss
 ├── results/figures/surrogate_fit.png      # data vs surrogate
-├── results/surrogate_naca0012.pt          # trained weights
+├── results/surrogate_naca0012.pt          # best weights (early stopping)
 └── requirements.txt
 ```
 
