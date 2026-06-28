@@ -17,8 +17,8 @@ concept and every line of `src/train_surrogate.py`.
 
 | Output | Validation RMSE | Validation R² |
 |---|---|---|
-| Cl | 0.0017 | 1.000 |
-| Cd | 0.00006 | 1.000 |
+| Cl | 0.0026 | 1.000 |
+| Cd | 0.00007 | 1.000 |
 
 The surrogate reproduces the polar on **held-out validation points** it never saw during training.
 
@@ -34,9 +34,10 @@ The surrogate reproduces the polar on **held-out validation points** it never sa
 
 ## Dynamique d'entraînement : validation & early stopping
 
-La boucle (v2) suit **deux loss par epoch** — train et validation — et conserve le **meilleur**
-modèle (early stopping). Concepts détaillés dans [`docs/pytorch_guide.md`](../../docs/pytorch_guide.md)
-§12 (boucle canonique) et §14 (régularisation).
+La boucle (v2) suit **deux loss par epoch** — train et validation —, décroît le learning rate via
+un **scheduler (StepLR)**, et conserve le **meilleur** modèle (early stopping). Concepts détaillés
+dans [`docs/pytorch_guide.md`](../../docs/pytorch_guide.md) §11 (scheduler), §12 (boucle canonique)
+et §14 (régularisation).
 
 ![Courbes d'apprentissage](results/figures/learning_curves.png)
 
@@ -44,13 +45,13 @@ modèle (early stopping). Concepts détaillés dans [`docs/pytorch_guide.md`](..
 - **train (bleu) et validation (orange) se superposent** → **aucun surapprentissage**. En cas
   d'overfit, l'orange décrocherait *au-dessus* du bleu ; ici les données sont propres (sans bruit),
   donc le modèle généralise parfaitement (R² = 1.000 en validation).
-- **Les pics réguliers** = **instabilité d'optimisation** : un `lr = 1e-2` un peu élevé (Adam,
-  full-batch) provoque des pas qui sur-corrigent ponctuellement, puis ça se rétablit. Ils
-  apparaissent dans les **deux** courbes en même temps → artefact d'optimisation, **pas** un overfit.
-  Pour les lisser : baisser le `lr` (ex. `3e-3`) ou ajouter un *scheduler*.
+- **Des pics au début, puis un lissage net** : tant que `lr = 1e-2`, Adam (full-batch) fait
+  ponctuellement des pas qui **sur-corrigent** → des pics (présents dans les **deux** courbes
+  ensemble → artefact d'optimisation, **pas** un overfit). Le **scheduler `StepLR`** divise le `lr`
+  par 2 toutes les 1000 epochs : on voit les pics **disparaître après ~epoch 1000**, une fois le
+  `lr` réduit. Gain mesuré : pic max divisé par **~21** vs `lr` constant (guide §11).
 - **Pourquoi l'early stopping sert ici** : on **mémorise les meilleurs poids** (val_loss minimale
-  ≈ 1.4·10⁻⁵) et on les **restaure** à la fin → le modèle livré n'est jamais celui d'un pic, même si
-  l'entraînement reste bruité. Illustration concrète de son intérêt.
+  ≈ 2·10⁻⁵) et on les **restaure** à la fin → le modèle livré n'est jamais celui d'un pic.
 
 Pseudo-code de la boucle (le détail est dans le Bloc 5 plus bas) :
 ```python
@@ -58,6 +59,7 @@ best_val = inf
 for epoch in range(EPOCHS):
     model.train();  opt.zero_grad()                    # 1) entrainement
     loss = mse(model(Xtr), Ytr);  loss.backward();  opt.step()
+    sched.step()                                        #    decroit le learning rate
     model.eval()                                        # 2) validation (sans gradient)
     with torch.no_grad():  vloss = mse(model(Xva), Yva)
     if vloss < best_val:                                # 3) early stopping : garder le meilleur
@@ -185,11 +187,14 @@ model = nn.Sequential(
 ```python
 loss_fn = nn.MSELoss()
 opt = torch.optim.Adam(model.parameters(), lr=1e-2, weight_decay=1e-5)
+sched = torch.optim.lr_scheduler.StepLR(opt, step_size=1000, gamma=0.5)
 ```
 - `MSELoss` = **erreur quadratique moyenne** `moyenne((prédit − vrai)²)`, **le nombre à minimiser**.
 - `Adam` = l'**optimiseur** qui modifie les poids. `lr=1e-2` = **learning rate** (taille du pas).
 - `weight_decay=1e-5` = une **régularisation L2** légère (pénalise les gros poids). Faible ici car
   les données sont propres ; c'est surtout une bonne habitude.
+- `StepLR` = un **scheduler** : il **multiplie le `lr` par 0.5 toutes les 1000 epochs**. `lr` élevé
+  au début (convergence rapide) → `lr` faible à la fin (pas stables, sans pics).
 
 ### Bloc 5 — La boucle d'entraînement (train + validation + early stopping)
 ```python
@@ -198,6 +203,7 @@ for epoch in range(EPOCHS):
     # (a) entrainement
     model.train(); opt.zero_grad()
     loss = loss_fn(model(Xtr_t), Ytr_t); loss.backward(); opt.step()
+    sched.step()                                  # decroit le learning rate
     # (b) validation (sans gradient)
     model.eval()
     with torch.no_grad():
@@ -267,6 +273,7 @@ p_dense = denorm_y(model(torch.tensor(norm_x(a_dense))).numpy())
 | **Rétropropagation** | Calcul des gradients de la loss par rapport aux poids. |
 | **Gradient descent / Adam** | Algorithme qui met à jour les poids pour baisser la loss. |
 | **Learning rate** | Taille du pas de mise à jour des poids. |
+| **Scheduler** | Fait évoluer le learning rate au fil des epochs (ex. le diviser périodiquement) pour stabiliser la fin d'entraînement. |
 | **Inférence** | Utiliser le modèle entraîné pour prédire sur de nouvelles entrées. |
 | **RMSE / R²** | Métriques : erreur typique / qualité d'ajustement (1 = parfait). |
 

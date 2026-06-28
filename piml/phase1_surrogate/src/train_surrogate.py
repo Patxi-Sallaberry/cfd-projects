@@ -60,6 +60,9 @@ def main():
         nn.Linear(64, 2),
     )
     opt = torch.optim.Adam(model.parameters(), lr=1e-2, weight_decay=1e-5)
+    # Scheduler : on divise le learning rate par 2 toutes les 1000 epochs.
+    # lr eleve au debut (convergence rapide) -> lr faible a la fin (stable, sans pics).
+    sched = torch.optim.lr_scheduler.StepLR(opt, step_size=1000, gamma=0.5)
     loss_fn = nn.MSELoss()
 
     # --- 5. Boucle : entrainement + validation + early stopping ---
@@ -72,6 +75,7 @@ def main():
         loss = loss_fn(model(Xtr_t), Ytr_t)
         loss.backward()
         opt.step()
+        sched.step()                          # decroit le learning rate au fil des epochs
         # (b) validation (sans gradient)
         model.eval()
         with torch.no_grad():
