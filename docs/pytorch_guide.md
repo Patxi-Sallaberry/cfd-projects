@@ -528,6 +528,56 @@ Les 5 étapes, toujours dans cet ordre :
 
 > Oublier `zero_grad()` est **l'erreur n°1** des débutants → gradients faux, entraînement cassé.
 
+### La vraie boucle : avec validation
+
+En pratique on ajoute un **deuxième temps** par epoch : la **validation**, pour surveiller la
+généralisation pendant l'entraînement.
+
+```python
+train_hist, val_hist = [], []
+for epoch in range(n_epochs):
+    # --- 1) entrainement ---
+    model.train()
+    opt.zero_grad()
+    loss = loss_fn(model(Xtr), Ytr)
+    loss.backward()
+    opt.step()
+    # --- 2) validation (pas de gradient, pas de mise a jour) ---
+    model.eval()
+    with torch.no_grad():
+        val = loss_fn(model(Xva), Yva)
+    train_hist.append(loss.item()); val_hist.append(val.item())
+```
+
+### Pourquoi `model.train()` / `model.eval()`
+
+Ils **changent le comportement** de certaines couches : `Dropout` et `BatchNorm` sont **actives en
+`train()`**, **neutralisées en `eval()`**. Oublier `eval()` pour valider/prédire → métriques
+faussées. (Sur un MLP sans dropout/batchnorm, ça ne change rien, mais c'est une habitude à prendre.)
+
+### La signature de l'overfitting
+
+On surveille **toujours** la `val_loss`, jamais la `train_loss` seule. Exemple réel (gros modèle,
+14 points bruités, bruit d'écart-type 0.3) :
+
+| epoch | train_loss | val_loss |
+|---|---|---|
+| 0 | 0.94 | 4.46 |
+| 2000 | 0.0000 | 0.10 |
+| 4000 | 0.0000 | 0.10 |
+
+- `train_loss → 0` : le modèle **mémorise** les points d'entraînement, **y compris leur bruit**
+  (une loss nulle sur des données bruitées est impossible si on a vraiment appris la tendance).
+- `val_loss` bloquée à ≈ 0.10 ≈ `0.3²` : sur des points neufs, il ne bat pas le **noise floor**.
+- **L'écart énorme train ≪ val = overfitting.** Un bon ajustement donne `train ≈ val`.
+
+Diagnostic rapide :
+```
+train ↓  et  val ↓               -> sain
+train ↓  et  val plat/↑ (gros ecart) -> OVERFITTING
+```
+Remèdes (voir §14) : modèle plus petit, plus de données, `weight_decay`, `dropout`, **early stopping**.
+
 ---
 
 ## 13. Les données
