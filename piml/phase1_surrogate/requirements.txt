@@ -1,0 +1,11 @@
+# Phase 1 - surrogate model
+# Base scientifique
+numpy>=2.0
+pandas>=2.0
+matplotlib>=3.8
+# Deep learning (modele surrogate) - version CPU :
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+torch>=2.0
+# Generation du dataset (polaire de reference)
+neuralfoil>=0.3
+aerosandbox>=4.2
