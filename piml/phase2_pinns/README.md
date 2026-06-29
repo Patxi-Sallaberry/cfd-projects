@@ -201,6 +201,57 @@ measurements) with the **physics** loss (`u_t = α·u_xx`, with α a trainable p
 
 Run: `python src/pinn_heat_inverse.py`
 
+### Understanding the code step by step
+
+Only the **changes** vs the forward heat PINN (2.2) are detailed — the partial-derivative machinery
+(`u_t`, `u_xx` via autograd) is identical and explained in the 2.2 walkthrough.
+
+**① The measurements — the only "data" here** (sparse and noisy, like sensors)
+```python
+xm = np.random.rand(N_MEAS,1); tm = np.random.rand(N_MEAS,1)         # 40 random (x,t) locations
+um = analytic(xm, tm) + 0.02*np.random.randn(N_MEAS,1)               # values + measurement noise
+Xm, Tm, Um = (torch.tensor(a, dtype=torch.float32) for a in (xm,tm,um))
+```
+The forward problems (2.1, 2.2) used **no data**. The inverse problem **needs** a few measurements:
+they are what makes the unknown parameter identifiable. The `0.02*randn` mimics real sensor noise.
+
+**② The unknown parameter, made trainable**
+```python
+alpha = nn.Parameter(torch.tensor(1.5))      # deliberately wrong start; true value = 0.4
+```
+`nn.Parameter` turns a plain scalar into a **learnable variable**: it gets a gradient and is updated
+just like a network weight. This is the crux of the inverse problem — α is no longer a fixed constant,
+it is **discovered** during training.
+
+**③ Optimize the network weights AND α together**
+```python
+opt = torch.optim.Adam(list(model.parameters()) + [alpha], lr=5e-3)
+```
+We hand the optimizer **both** the network's weights *and* α. At each step, gradient descent nudges
+all of them to reduce the total loss → the field `u(x,t)` and the parameter α are learned jointly.
+
+**④ Two loss terms: data + physics (with the current α)**
+```python
+loss_data = ((model(torch.cat([Xm,Tm],1)) - Um)**2).mean()           # fit the measurements
+u   = model(torch.cat([xc,tc],1))
+u_t = grad(u, tc, ...);  u_x = grad(u, xc, ...);  u_xx = grad(u_x, xc, ...)
+loss_phys = ((u_t - alpha*u_xx)**2).mean()                           # heat eq with the LEARNED alpha
+loss = loss_data + 1e-2*loss_phys
+```
+- `loss_data` pulls the field through the noisy measurements.
+- `loss_phys` forces the field to obey `u_t = α·u_xx` — but with the **trainable** α. This is the
+  coupling: the physics ties α to the shape of the field, the data ties the field to reality.
+- **Why it works:** data alone → infinitely many fields through 40 noisy points; physics alone → α
+  undetermined (and the trivial `u≡0`). **Together** they pin down the single α whose physical field
+  matches the data.
+
+**⑤ Watch α converge**
+```python
+a_hist.append(alpha.item())                  # record alpha every epoch -> the left plot
+```
+Plotting `a_hist` shows α climbing from 1.5, overshooting, then settling near the true 0.4 — the
+visual proof the parameter was recovered.
+
 **Why this is the whole point.** You *cannot* do this with the analytic formula — it requires already
 knowing α. This is **data assimilation / parameter inference**: from sparse, noisy measurements +
 physics, recover hidden quantities *and* the complete field. In a CFD context: infer an effective
