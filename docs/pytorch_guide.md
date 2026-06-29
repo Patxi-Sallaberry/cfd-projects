@@ -25,6 +25,7 @@ première fois, puis à utiliser comme référence.
 17. [Pièges classiques et debugging](#17-pièges-classiques)
 18. [Exemple complet de bout en bout](#18-exemple-complet)
 19. [Pour aller plus loin](#19-pour-aller-plus-loin)
+20. [PINNs — dériver par rapport aux entrées](#20-pinns--dériver-par-rapport-aux-entrées)
 
 ---
 
@@ -772,4 +773,126 @@ with torch.no_grad():
 - **Doc officielle** : https://pytorch.org/docs et les tutoriels https://pytorch.org/tutorials
 
 > Lien avec le projet : la Phase 1 (`piml/phase1_surrogate/`) applique les sections 7, 10, 11, 12 et
-> 15. La Phase 2 (PINNs) ajoutera surtout la section 5 (autograd sur les entrées).
+> 15. La Phase 2 (PINNs) est détaillée dans la **section 20** ci-dessous.
+
+---
+
+## 20. PINNs — dériver par rapport aux entrées
+
+Tout ce qui précède différencie la loss **par rapport aux poids** (pour entraîner). Les **PINNs**
+(Physics-Informed Neural Networks) ajoutent une idée : différencier aussi la **sortie du réseau par
+rapport à ses entrées** (x, t…) pour écrire une équation différentielle, et minimiser son résidu.
+Cette section concentre la boîte à outils PINN (utilisée dans `piml/phase2_pinns/`).
+
+### 20.1 Le changement de point de vue
+
+| | Entraînement classique | PINN |
+|---|---|---|
+| On dérive | la **loss** p/r aux **poids** | aussi la **sortie** p/r aux **entrées** |
+| Outil | `loss.backward()` | `torch.autograd.grad(u, x, …)` |
+| But | apprendre des données | satisfaire une équation (résidu nul) |
+
+### 20.2 Dériver la sortie par rapport à l'entrée
+
+```python
+x = torch.linspace(0, 1, 200).reshape(-1, 1).requires_grad_(True)   # l'entree doit suivre le graphe
+u = model(x)
+u_x = torch.autograd.grad(u, x, grad_outputs=torch.ones_like(u), create_graph=True)[0]
+```
+- **`.requires_grad_(True)`** sur l'**entrée** : sans ça, pas de dérivée p/r à x.
+- **`grad_outputs=torch.ones_like(u)`** : comme `u` est un vecteur, ce seed à 1 donne, pour chaque
+  point, `du_i/dx_i` (le réseau agit point par point).
+- **`create_graph=True`** : garde le graphe de la dérivée → permet (a) les dérivées d'ordre supérieur,
+  (b) la rétropropagation de la loss à travers ces dérivées pour entraîner les poids.
+- **`[0]`** : `autograd.grad` renvoie un tuple.
+
+### 20.3 Dérivées d'ordre supérieur et partielles
+
+```python
+u_xx = torch.autograd.grad(u_x, x, torch.ones_like(u_x), create_graph=True)[0]   # derivee seconde
+```
+Pour **plusieurs entrées**, on les garde en **tenseurs séparés** et on dérive p/r à chacun :
+```python
+u   = model(torch.cat([x, t], dim=1))
+u_t = torch.autograd.grad(u,   t, torch.ones_like(u),   create_graph=True)[0]   # ∂u/∂t
+u_x = torch.autograd.grad(u,   x, torch.ones_like(u),   create_graph=True)[0]   # ∂u/∂x
+u_xx= torch.autograd.grad(u_x, x, torch.ones_like(u_x), create_graph=True)[0]   # ∂²u/∂x²
+```
+
+> ⚠️ **`tanh`, pas `relu`** : on prend des dérivées d'ordre 2 ; la dérivée seconde d'un ReLU est nulle
+> partout → incapable de représenter une courbure. Toujours une activation **lisse** pour un PINN.
+
+### 20.4 Résidu d'une équation + loss physique
+
+On écrit l'équation littéralement et on minimise son carré moyen, sur des **points de collocation**
+(des endroits où l'on impose l'équation — **pas** des données) :
+```python
+residual  = u_t - alpha * u_xx          # ex. equation de la chaleur : = 0 si satisfaite
+loss_phys = (residual ** 2).mean()
+```
+
+### 20.5 Conditions initiales / aux limites
+
+L'équation seule a une infinité de solutions (dont la triviale `u ≡ 0`, de résidu nul !). Les
+**CI/CL** sélectionnent la bonne, comme des contraintes de **valeur** (pas de dérivée) :
+```python
+loss_ic = ((model(cat([xi, ti])) - u_target) ** 2).mean()      # u(x,0) impose
+loss_bc = (model(cat([x0, tb])) ** 2).mean()                   # u(0,t) = 0
+```
+
+### 20.6 Pondérer les termes de loss
+
+Les termes ont souvent des **échelles très différentes** (un résidu en `ω²·u` peut valoir ~10⁴ vs une
+CI ~1). On pondère pour les équilibrer, sinon un terme écrase les autres :
+```python
+loss = W_PHYS * loss_phys + W_IC * loss_ic + W_BC * loss_bc
+```
+C'est un **réglage central** des PINNs (équilibrage des termes).
+
+### 20.7 Problème inverse : apprendre un paramètre physique
+
+Un paramètre inconnu (viscosité, diffusivité…) devient une **variable entraînable** via `nn.Parameter`,
+optimisée **en même temps** que les poids, avec un terme de **données** :
+```python
+alpha = nn.Parameter(torch.tensor(1.5))                          # inconnu a retrouver
+opt = torch.optim.Adam(list(model.parameters()) + [alpha], lr=5e-3)
+...
+loss = loss_data + 1e-2 * loss_phys      # data tire le champ vers la realite ; physique fixe alpha
+```
+→ depuis quelques mesures + la physique, on **retrouve** le paramètre et on reconstruit le champ.
+C'est *le* vrai usage des PINNs (assimilation de données / inférence de paramètre).
+
+### 20.8 Recette minimale (PINN complet)
+
+```python
+model = nn.Sequential(nn.Linear(1,32), nn.Tanh(), nn.Linear(32,32), nn.Tanh(), nn.Linear(32,1))
+opt = torch.optim.Adam(model.parameters(), lr=1e-3)
+t = torch.linspace(0, 1, 200).reshape(-1, 1).requires_grad_(True)
+t0 = torch.zeros(1, 1, requires_grad=True)
+
+for epoch in range(20000):
+    opt.zero_grad()
+    u   = model(t)
+    u_t = torch.autograd.grad(u, t, torch.ones_like(u), create_graph=True)[0]
+    u_tt= torch.autograd.grad(u_t, t, torch.ones_like(u_t), create_graph=True)[0]
+    loss_phys = ((u_tt + 2*DELTA*u_t + OMEGA0**2 * u) ** 2).mean()   # oscillateur amorti
+    u0  = model(t0)
+    u0_t= torch.autograd.grad(u0, t0, torch.ones_like(u0), create_graph=True)[0]
+    loss_ic = (u0 - 1)**2 + (u0_t - 0)**2
+    loss = 1e-4 * loss_phys + loss_ic.squeeze()
+    loss.backward(); opt.step()
+```
+
+### Pièges spécifiques aux PINNs
+
+| Symptôme | Cause |
+|---|---|
+| `grad` renvoie `None` / erreur | entrée sans `requires_grad_(True)`, ou `create_graph` oublié |
+| Impossible d'avoir `u_xx` | `create_graph=True` manquant sur la 1ʳᵉ dérivée |
+| Courbure non apprise | activation `relu` (dérivée 2de nulle) → utiliser `tanh` |
+| Solution triviale `u≡0` | conditions initiales/limites absentes ou trop faibles |
+| Un terme domine | loss mal pondérée (ajuster `W_PHYS`, `W_IC`…) |
+| Loss basse mais résultat faux | toujours **valider** contre une solution connue |
+
+> Exemples complets dans le repo : `piml/phase2_pinns/` (oscillateur, équation de la chaleur,
+> problème inverse), chacun documenté pas à pas dans son README.
