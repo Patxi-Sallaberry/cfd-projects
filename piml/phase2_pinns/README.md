@@ -300,8 +300,39 @@ condition is needed: the data near t=0 already anchors the solution.)
 
 ---
 
-## Next steps
-- **2.3** — flow case: Burgers' equation `u_t + u·u_x = ν·u_xx` (kinematic viscosity **ν**, m²/s), the
-  non-linear convective term, then steady flow features toward the NACA 0012 context.
+## 2.3 — Burgers' equation (a non-linear PDE → shock) ✅
 
-Foundations: see the PyTorch guide [`../../docs/pytorch_guide.md`](../../docs/pytorch_guide.md) (§5 autograd).
+The non-linear case: `u_t + u·u_x = ν·u_xx`, with `u(x,0) = −sin(πx)`, ends held at 0, and kinematic
+viscosity **ν = 0.01/π m²/s**. The convective term `u·u_x` steepens the profile into a
+near-discontinuity (a **shock**) near x=0; viscosity ν keeps it finite. There is no simple closed
+form — so it is **validated against a finite-difference solver**. **R² = 0.999** vs that reference.
+This is the historical PINN benchmark (Raissi et al., 2019).
+
+![Burgers PINN](results/figures/pinn_burgers.png)
+
+Left: the profile steepens over time into a shock at x=0 (PINN solid vs FD dashed). Right: the learned
+space-time field `u(x,t)`. Run: `python src/pinn_burgers.py`
+
+**What's new vs the heat equation (2.2):**
+- A **non-linear** term `u·u_x` in the residual — the field transports itself (the **convective** term,
+  exactly what makes Navier–Stokes hard). In code it is simply:
+  ```python
+  loss_phys = ((u_t + u*u_x - NU*u_xx) ** 2).mean()
+  ```
+  autograd handles the derivatives; the non-linearity is just the `u * u_x` product.
+- A sharper solution → a slightly **deeper network** (4 hidden layers) + a `StepLR` scheduler help.
+- **Validation without an analytic formula:** we compare to a finite-difference solver
+  (`fd_reference()`) — the V&V reflex when no exact solution exists.
+
+> The convective term `u·u_x` is the bridge to real flows: the same `u·∇u` term sits inside
+> Navier–Stokes.
+
+---
+
+## Next steps
+- **2.4** — toward real flow: a 2-D steady incompressible case (e.g. lid-driven cavity or flow past a
+  body) with the **Navier–Stokes** residual — the same convective term `u·∇u`, now coupled with the
+  continuity (mass-conservation) equation.
+
+Foundations: see the PyTorch guide [`../../docs/pytorch_guide.md`](../../docs/pytorch_guide.md)
+(§5 autograd, §20 PINNs).

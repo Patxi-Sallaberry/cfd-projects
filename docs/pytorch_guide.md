@@ -830,6 +830,10 @@ On écrit l'équation littéralement et on minimise son carré moyen, sur des **
 residual  = u_t - alpha * u_xx          # ex. equation de la chaleur : = 0 si satisfaite
 loss_phys = (residual ** 2).mean()
 ```
+> **Termes non linéaires** : ils s'écrivent directement. Ex. Burgers :
+> `residual = u_t + u*u_x - nu*u_xx` — le produit `u*u_x` suffit, autograd gère les dérivées. Quand
+> l'équation **n'a pas de solution analytique**, on valide le PINN contre un **solveur numérique**
+> (différences finies). Exemple : `piml/phase2_pinns/src/pinn_burgers.py`.
 
 ### 20.5 Conditions initiales / aux limites
 
