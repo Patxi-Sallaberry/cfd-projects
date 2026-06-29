@@ -1,113 +1,152 @@
-# Simulation CFD — Profil NACA 0012 | α = 15°
+# CFD Simulation — NACA 0012 airfoil | α = 15°
 
 ## Description
 
-Dans le cadre de mon développement de compétences en ingénierie des fluides, j'ai réalisé une simulation CFD complète d'un profil aérodynamique NACA 0012 en utilisant ANSYS Fluent 2026 R1 Student.
+As part of building my fluid-engineering skills, I ran a complete CFD simulation of a NACA 0012
+airfoil using ANSYS Fluent 2026 R1 Student.
+
+## Physical quantities
+
+| Symbol | Meaning | Unit |
+|---|---|---|
+| α | angle of attack | degrees (°) |
+| V (V∞) | free-stream velocity | m/s |
+| Re | Reynolds number, `Re = ρ·V·c/μ` | dimensionless |
+| ρ | air density | kg/m³ |
+| μ | dynamic viscosity | kg/(m·s) = Pa·s |
+| Cl, Cd | lift / drag coefficients | dimensionless |
+| c | chord | m (200 mm) |
 
 ---
 
-## Outils utilisés
+## Tools used
 
-- **Fusion 360** : modélisation 3D du profil NACA 0012 (corde 200mm, envergure 300mm), exporté en fichier STEP
-- **ANSYS DesignModeler** : création du domaine fluide (boîte [-1m;3m] × [-0.3m;0.3m] × [-0.5m;0.5m]), soustraction booléenne de l'aile, définition des Named Selections (inlet, outlet, symmetry, wall_naca)
-- **ANSYS Fluent Meshing** : génération du maillage volumique polyédrique (56 000 cellules) avec couches limites (boundary layers, smooth-transition, 3 couches)
-- **ANSYS Fluent** : configuration et résolution de l'écoulement incompressible stationnaire
+- **Fusion 360**: 3-D modelling of the NACA 0012 profile (chord 200 mm, span 300 mm), exported as STEP.
+- **ANSYS DesignModeler**: fluid domain (box [−1 m; 3 m] × [−0.3 m; 0.3 m] × [−0.5 m; 0.5 m]), boolean
+  subtraction of the wing, Named Selections (inlet, outlet, symmetry, wall_naca).
+- **ANSYS Fluent Meshing**: polyhedral volume mesh (56,000 cells) with boundary layers
+  (smooth-transition, 3 layers).
+- **ANSYS Fluent**: setup and solution of the steady incompressible flow.
 
 ---
 
-## Paramètres de simulation
+## Simulation parameters
 
-| Paramètre | Valeur |
+| Parameter | Value |
 |---|---|
-| Modèle de turbulence | k-omega SST |
-| Régime | Stationnaire (steady-state) |
-| Fluide | Air (ρ = 1.225 kg/m³, μ = 1.789×10⁻⁵ kg/m·s) |
-| Vitesse | 30 m/s |
-| Nombre de Reynolds | ≈ 400 000 |
-| Angle d'attaque | α = 15° (Ux = 28.98 m/s, Uy = -7.76 m/s) |
+| Turbulence model | k-ω SST |
+| Regime | Steady-state |
+| Fluid | Air (ρ = 1.225 kg/m³, μ = 1.789×10⁻⁵ kg/(m·s)) |
+| Velocity | 30 m/s |
+| Reynolds number | ≈ 400,000 |
+| Angle of attack | α = 15° (Ux = 28.98 m/s, Uy = −7.76 m/s) |
 | Inlet | Velocity-inlet |
 | Outlet | Pressure-outlet (0 Pa) |
-| Aile | Wall no-slip |
-| Faces latérales | Symmetry |
+| Wing | No-slip wall |
+| Side faces | Symmetry |
 
 ---
 
-## Résultats
+## Results
 
-Distribution de pression statique sur le profil à α = 15°, convergence obtenue en moins de 70 itérations.
+Static-pressure distribution on the airfoil at α = 15°; convergence reached in under 70 iterations.
 
-- Pression min (extrados) : **-511 Pa**
-- Pression max (intrados) : **+733 Pa**
+- Min pressure (suction side): **−511 Pa**
+- Max pressure (pressure side): **+733 Pa**
 
-![Contours de pression statique](naca0012_pressure_alpha15_view1.png)
+![Static pressure contours](naca0012_pressure_alpha15_view1.png)
 
-![Vue 3D](naca0012_pressure_alpha15_view2.png)
+![3-D view](naca0012_pressure_alpha15_view2.png)
 
-![Résidus de convergence](naca0012_residuals.png)
+![Convergence residuals](naca0012_residuals.png)
 
-![Coefficient de portance Cl](naca0012_cl_alpha15.png)
+![Lift coefficient Cl](naca0012_cl_alpha15.png)
 
-![Coefficient de traînée Cd](naca0012_cd_alpha15.png)
+![Drag coefficient Cd](naca0012_cd_alpha15.png)
 
-### Visualisation des lignes de courant
+### Streamline visualization
 
-Superposition des pathlines (colorées par vitesse magnitude) et du contour de pression statique sur le profil à α = 15°.
+Pathlines (coloured by velocity magnitude) overlaid on the static-pressure contour at α = 15°.
 
-![Streamlines et pression — α = 15°](streamlines_alpha15.png)
+![Streamlines and pressure — α = 15°](streamlines_alpha15.png)
 
-On observe clairement l'accélération du flux sur l'extrados (rouge, ~43 m/s) et le ralentissement en aval du bord de fuite. Les lignes de courant suivent bien la courbure du profil sans décollement visible, ce qui est cohérent avec un angle d'attaque de 15° sur un NACA 0012 symétrique à Re ≈ 400 000 — proche du décrochage mais pas encore décollé à ce niveau de maillage.
-
----
-
-## Ce que j'ai appris
-
-- Construire un domaine fluide externe autour d'une géométrie importée et réaliser une soustraction booléenne
-- Utiliser le workflow Watertight Geometry de Fluent Meshing pour générer un maillage de qualité
-- Comprendre l'importance des Named Selections pour l'assignation des conditions aux limites
-- Configurer un solveur RANS avec le modèle k-omega SST, adapté aux écoulements sur profils aérodynamiques à nombre de Reynolds modéré
-- Définir des Report Definitions (Cl, Cd) avec les bons vecteurs de force en fonction de l'angle d'attaque
-- Visualiser et interpréter les contours de pression statique : dépression sur l'extrados (-511 Pa), surpression sur l'intrados (+733 Pa), gradient cohérent avec la génération de force aérodynamique
-- Lire la convergence des résidus et évaluer la qualité d'une solution CFD
+The flow clearly accelerates over the suction side (red, ~43 m/s) and slows down downstream of the
+trailing edge. The streamlines follow the airfoil curvature with no visible separation, consistent
+with a 15° angle of attack on a symmetric NACA 0012 at Re ≈ 400,000 — close to stall but not yet
+separated at this mesh resolution.
 
 ---
 
-## Analyse critique des résultats
+## What I learned
 
-### Qualité du maillage
+- Building an external fluid domain around an imported geometry and performing a boolean subtraction.
+- Using Fluent Meshing's Watertight Geometry workflow to generate a quality mesh.
+- The importance of Named Selections for assigning boundary conditions.
+- Configuring a RANS solver with the k-ω SST model, suited to airfoil flows at moderate Reynolds.
+- Defining Report Definitions (Cl, Cd) with the correct force vectors as a function of the angle of attack.
+- Reading and interpreting static-pressure contours: suction on the upper surface (−511 Pa),
+  overpressure on the lower surface (+733 Pa), a gradient consistent with aerodynamic force generation.
+- Reading residual convergence and assessing the quality of a CFD solution.
 
-Le maillage de 56 000 cellules polyédriques est insuffisant pour capturer correctement la couche limite sur le profil. Un maillage de qualité pour un profil NACA nécessite typiquement 500 000 à 2 millions de cellules avec un raffinage important au bord d'attaque et de fuite. La skewness maximale de 0.94 (surface mesh) et l'orthogonal quality minimale de 0.15 (volume mesh) sont des indicateurs de qualité médiocre — les valeurs cibles sont respectivement <0.85 et >0.2.
+---
 
-### Valeurs de Cl/Cd
+## Critical analysis of the results
 
-Le Cd obtenu (~0.12) est environ 5 à 6 fois supérieur à la valeur théorique pour un NACA 0012 à Re=400k et α=15° (~0.02). Le Cl converge vers une valeur négative (~-0.25) alors qu'on attend ~+1.5, ce qui suggère un problème d'orientation du Force Vector lié à la convention d'axes de la géométrie. Ces écarts s'expliquent par trois facteurs cumulés : maillage trop grossier, couches limites insuffisantes (3 couches seulement, y+ probablement mal résolu), et domaine fluide peut-être trop petit en Y (±0.3m = 1.5 cordes seulement, contre 10-20 cordes recommandées).
+### Mesh quality
+
+The 56,000-cell polyhedral mesh is insufficient to capture the boundary layer correctly. A quality
+mesh for a NACA airfoil typically needs 500,000 to 2 million cells with strong refinement at the
+leading and trailing edges. The maximum skewness of 0.94 (surface mesh) and minimum orthogonal
+quality of 0.15 (volume mesh) indicate poor quality — target values are < 0.85 and > 0.2 respectively.
+
+### Cl/Cd values
+
+The obtained Cd (~0.12) is about 5–6× higher than the theoretical value for a NACA 0012 at Re = 400k
+and α = 15° (~0.02). Cl converges to a negative value (~−0.25) when ~+1.5 is expected, which points to
+a Force Vector orientation issue tied to the geometry's axis convention. These deviations stem from
+three cumulative factors: too coarse a mesh, insufficient boundary layers (only 3 layers, y⁺ probably
+poorly resolved), and a fluid domain likely too small in Y (±0.3 m = only 1.5 chords, vs the
+recommended 10–20 chords).
 
 ### Convergence
 
-La convergence en moins de 70 itérations est rapide mais pas nécessairement un signe de qualité — elle peut indiquer que le maillage est trop grossier pour résoudre les gradients fins de l'écoulement. Le résidu de continuité (~1e-3) n'atteint pas le critère standard de 1e-4 à 1e-6.
+Convergence in under 70 iterations is fast but not necessarily a sign of quality — it may indicate the
+mesh is too coarse to resolve the fine flow gradients. The continuity residual (~1e-3) does not reach
+the standard criterion of 1e-4 to 1e-6.
 
-### Lignes de courant
+### Streamlines
 
-Les streamlines confirment qualitativement le comportement attendu : pas de décollement massif visible à α=15°, accélération nette sur l'extrados, sillage étroit en aval. Cela reste cohérent avec la physique, même si le maillage grossier lisse les gradients réels.
+The streamlines qualitatively confirm the expected behaviour: no massive separation at α = 15°, clear
+acceleration on the suction side, narrow wake downstream. This remains physically consistent, even if
+the coarse mesh smooths the real gradients.
 
-### Ce qu'il faudrait améliorer
+### What should be improved
 
-- Raffiner le maillage à 500k+ cellules avec y+ ≈ 1 sur l'aile pour k-omega SST
-- Agrandir le domaine fluide à ±10 cordes en Y et Z
-- Vérifier l'orientation de la géométrie pour corriger le signe du Cl
-- Valider les résultats contre les données XFOIL ou les tables NACA expérimentales
+- Refine the mesh to 500k+ cells with y⁺ ≈ 1 on the wing for k-ω SST.
+- Enlarge the fluid domain to ±10 chords in Y and Z.
+- Check the geometry orientation to fix the Cl sign.
+- Validate the results against XFOIL or experimental NACA tables.
 
-### Ce qui est correct
+### What is correct
 
-Malgré ces limitations, la physique qualitative est bien capturée : le gradient de pression entre intrados et extrados est cohérent, la convergence est stable, et la méthodologie complète (géométrie → maillage → setup → résultats) est maîtrisée. Les streamlines renforcent cette conclusion en montrant un écoulement attaché et bien structuré autour du profil. Pour un premier projet CFD sur ANSYS Fluent, les objectifs pédagogiques sont atteints.
+Despite these limitations, the qualitative physics is well captured: the pressure gradient between the
+lower and upper surfaces is consistent, convergence is stable, and the full methodology (geometry →
+mesh → setup → results) is mastered. The streamlines reinforce this conclusion, showing an attached,
+well-structured flow around the airfoil. For a first CFD project on ANSYS Fluent, the learning
+objectives are met.
+
+> **Follow-up.** This run's polar was later revisited as the Phase 0 V&V case of the PIML project
+> (`../piml/phase0_post_processor`), which diagnosed the Force-Vector and domain-blockage issues
+> quantitatively against a reference polar.
 
 ---
 
-## Prochaines étapes
+## Next steps
 
-Simulation pour α = 0°, 5° et 10° pour obtenir la polaire complète Cl/Cd = f(α).
+Simulate α = 0°, 5° and 10° to obtain the full polar Cl/Cd = f(α).
 
 | α | Ux (m/s) | Uy (m/s) |
 |---|---|---|
 | 0° | 30.00 | 0.00 |
-| 5° | 29.89 | -2.61 |
-| 10° | 29.54 | -5.21 |
+| 5° | 29.89 | −2.61 |
+| 10° | 29.54 | −5.21 |

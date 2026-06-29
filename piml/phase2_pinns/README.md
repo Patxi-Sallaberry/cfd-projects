@@ -12,13 +12,28 @@ the network discovers the solution.
 | Loss | data error | equation residual + boundary/initial conditions |
 | Autograd differentiates | loss w.r.t. **weights** | also output w.r.t. **inputs** (to get u′, u″) |
 
+## Physical quantities
+
+| Symbol | Meaning | Unit |
+|---|---|---|
+| **t** | time | s |
+| **x** | position (1-D space) | m |
+| **u** | the field being solved (oscillator: displacement; heat: temperature) | m or K |
+| **δ** | damping rate of the oscillator (energy dissipation) | 1/s |
+| **ω₀** | natural angular frequency of the oscillator | rad/s |
+| **α** | thermal diffusivity (how fast heat spreads), `α = k/(ρ·cₚ)` | m²/s |
+| **ν** | kinematic viscosity (Burgers, upcoming) | m²/s |
+
+> ⚠️ **Symbol clash:** in Phase 2, **α is the thermal diffusivity** (m²/s) — *not* the angle of
+> attack of Phases 0–1. Same letter, different physics.
+
 ---
 
 ## 2.1 — First PINN: damped harmonic oscillator ✅
 
-Solve, with **no data**, only the physics:
+Solve, with **no data**, only the physics (a mass–spring–damper system):
 
-$$u'' + 2\delta\,u' + \omega_0^2\,u = 0,\qquad u(0)=1,\ u'(0)=0\quad(\delta=2,\ \omega_0=20)$$
+$$u'' + 2\delta\,u' + \omega_0^2\,u = 0,\qquad u(0)=1,\ u'(0)=0\quad(\delta=2\ \mathrm{s^{-1}},\ \omega_0=20\ \mathrm{rad/s})$$
 
 ![PINN vs exact](results/figures/pinn_oscillator.png)
 
@@ -34,77 +49,77 @@ Run: `python src/pinn_oscillator.py`
 > w.r.t. the input. `create_graph=True` lets us take the *second* derivative and still backprop the
 > loss. Everything else (MLP, Adam, training loop) is the Phase 1 machinery.
 
-### Comprendre le code pas à pas
+### Understanding the code step by step
 
-Seules les parties **nouvelles** vs la Phase 1 sont détaillées (le MLP, Adam et la boucle sont
-identiques).
+Only the parts that are **new** vs Phase 1 are detailed (the MLP, Adam and the loop are identical).
 
-**① Le réseau représente la solution** (pas un fit de données)
+**① The network represents the solution** (not a data fit)
 ```python
 model = nn.Sequential(nn.Linear(1,32), nn.Tanh(), ... , nn.Linear(32,1))
 ```
-- `t → u` : le réseau **EST** la fonction `u(t)` cherchée, pas un interpolateur de points connus.
-- **`tanh` et surtout pas `relu`** : on prend la **dérivée seconde** `u''`. Celle d'un ReLU est nulle
-  partout → incapable de représenter une courbure. `tanh` est lisse et indéfiniment dérivable.
+- `t → u`: the network **IS** the function `u(t)` we seek, not an interpolator of known points.
+- **`tanh`, definitely not `relu`:** we take the **second derivative** `u''`. A ReLU's second
+  derivative is zero everywhere → unable to represent curvature. `tanh` is smooth and infinitely
+  differentiable.
 
-**② Points de collocation (≠ données)**
+**② Collocation points (≠ data)**
 ```python
 t_phys = torch.linspace(0, 1, 200).reshape(-1,1).requires_grad_(True)
 ```
-- 200 points où l'on **impose l'équation** — on ne connaît pas `u` à ces points, ce ne sont pas des
-  données. `.requires_grad_(True)` car on va dériver `u` par rapport à `t`.
+- 200 points where we **impose the equation** — we don't know `u` there, they are not data.
+  `.requires_grad_(True)` because we will differentiate `u` w.r.t. `t`.
 
-**③ Le cœur du PINN : dériver la sortie p/r à l'entrée**
+**③ The heart of the PINN: differentiate the output w.r.t. the input**
 ```python
 u    = model(t_phys)
 u_t  = torch.autograd.grad(u, t_phys, torch.ones_like(u),  create_graph=True)[0]
 u_tt = torch.autograd.grad(u_t, t_phys, torch.ones_like(u_t), create_graph=True)[0]
 ```
-- `torch.autograd.grad(u, t_phys, …)` = calcule `du/dt`. (En Phase 1, `loss.backward()` dérivait
-  p/r aux **poids** ; ici on dérive la **sortie p/r à l'entrée** `t`.)
-- **`torch.ones_like(u)`** (`grad_outputs`) : comme `u` est un vecteur (200 valeurs), ce seed à `1`
-  demande, pour chaque point, `du_i/dt_i` (le réseau agit point par point).
-- **`create_graph=True`** : garde le graphe de la dérivée elle-même → permet (a) la dérivée seconde
-  `u_tt` et (b) la rétropropagation de la loss à travers ces dérivées pour entraîner les poids.
-- **`[0]`** : `autograd.grad` renvoie un tuple.
+- `torch.autograd.grad(u, t_phys, …)` computes `du/dt`. (In Phase 1, `loss.backward()` differentiated
+  w.r.t. the **weights**; here we differentiate the **output w.r.t. the input** `t`.)
+- **`torch.ones_like(u)`** (`grad_outputs`): since `u` is a vector (200 values), this seed of `1`
+  asks, for each point, for `du_i/dt_i` (the network acts pointwise).
+- **`create_graph=True`**: keeps the graph of the derivative itself → enables (a) the second
+  derivative `u_tt` and (b) backpropagating the loss through these derivatives to train the weights.
+- **`[0]`**: `autograd.grad` returns a tuple.
 
-**④ Le résidu = l'équation, mise dans la loss**
+**④ The residual = the equation, put in the loss**
 ```python
-residual  = u_tt + 2*DELTA*u_t + OMEGA0**2 * u     # = 0 si l'ODE est satisfaite
+residual  = u_tt + 2*DELTA*u_t + OMEGA0**2 * u     # = 0 if the ODE is satisfied
 loss_phys = (residual ** 2).mean()
 ```
-On écrit littéralement l'équation. Solution correcte ⇔ `residual = 0` partout → on minimise
+We write the equation literally. Correct solution ⇔ `residual = 0` everywhere → we minimize
 `mean(residual²)`.
 
-**⑤ Conditions initiales (elles sélectionnent LA bonne solution)**
+**⑤ Initial conditions (they select THE right solution)**
 ```python
 u0   = model(t0)                                   # t0 = 0
 u0_t = torch.autograd.grad(u0, t0, ...)[0]
 loss_ic = (u0 - 1.0)**2 + (u0_t - 0.0)**2          # u(0)=1, u'(0)=0
 ```
-L'équation seule admet une infinité de solutions — **y compris la solution triviale `u ≡ 0`**, de
-résidu nul. Sans CI, le PINN s'effondre vers ce zéro (loss minuscule mais réponse fausse). Les CI
-**ancrent** la solution physique. *(Idem en flow : ce seront les conditions aux frontières.)*
+The equation alone admits infinitely many solutions — **including the trivial `u ≡ 0`**, whose
+residual is zero. Without ICs, the PINN collapses to that zero (tiny loss but wrong answer). The ICs
+**anchor** the physical solution. *(Same idea in flow: these become the boundary conditions.)*
 
-**⑥ Pondération `W_PHYS = 1e-4`**
+**⑥ Weighting `W_PHYS = 1e-4`**
 ```python
 loss = W_PHYS * loss_phys + loss_ic.squeeze()
 ```
-- `residual ≈ ω0²·u ≈ 400` → `residual² ≈ 1.6×10⁵`, alors que `loss_ic ≈ 1`. Sans pondération, la
-  physique écrase les CI.
-- `W_PHYS=1e-4` ramène `loss_phys` à ~O(1), comparable à `loss_ic` → les deux sont respectés.
-  Équilibrer les termes de la loss est un réglage central des PINNs.
+- `residual ≈ ω0²·u ≈ 400` → `residual² ≈ 1.6×10⁵`, whereas `loss_ic ≈ 1`. Without weighting, physics
+  crushes the ICs.
+- `W_PHYS=1e-4` brings `loss_phys` to ~O(1), comparable to `loss_ic` → both are respected. Balancing
+  the loss terms is a core PINN tuning knob.
 
-**À retenir.** Une loss basse ne garantit pas le bon résultat (cf. la solution triviale) → on
-**valide toujours** contre une référence (ici la solution analytique, R²=0.998).
+**Takeaway.** A low loss does not guarantee the right answer (cf. the trivial solution) → **always
+validate** against a reference (here the analytic solution, R²=0.998).
 
 ---
 
 ## 2.2 — Heat equation `u_t = α u_xx` (a true PDE) ✅
 
-First PDE: a diffusing field `u(x,t)` on x ∈ [0,1], with `u(x,0)=sin(πx)`, ends held at 0, α=0.4.
-Solved from physics + initial + boundary conditions, **with no data**. **R² = 0.999** vs the exact
-solution `sin(πx)·e^{-απ²t}`.
+First PDE: a diffusing field `u(x,t)` on x ∈ [0,1], with `u(x,0)=sin(πx)`, ends held at 0, and
+thermal diffusivity **α = 0.4 m²/s**. Solved from physics + initial + boundary conditions, **with no
+data**. **R² = 0.999** vs the exact solution `sin(πx)·e^{-απ²t}`.
 
 ![Heat PINN](results/figures/pinn_heat.png)
 
@@ -119,53 +134,53 @@ The sine bump decays in amplitude over time — that's diffusion. Run: `python s
 
 Otherwise the recipe is identical: minimize the residual `(u_t − α·u_xx)²` at collocation points.
 
-### Comprendre le code pas à pas
+### Understanding the code step by step
 
-Seuls les **changements** vs l'oscillateur (2.1) sont détaillés — les concepts communs (autograd,
-`grad_outputs`, `create_graph`, `tanh`, pondération) sont expliqués dans le walk-through de 2.1.
+Only the **changes** vs the oscillator (2.1) are detailed — the shared concepts (autograd,
+`grad_outputs`, `create_graph`, `tanh`, weighting) are explained in the 2.1 walkthrough.
 
-**① Réseau à 2 entrées**
+**① A 2-input network**
 ```python
 model = nn.Sequential(nn.Linear(2,32), nn.Tanh(), ... , nn.Linear(32,1))
-# appel : model(torch.cat([x, t], dim=1))
+# call: model(torch.cat([x, t], dim=1))
 ```
-La 1ʳᵉ couche prend **2** entrées `(x, t)`. On assemble les colonnes avec `torch.cat([x, t], dim=1)`
-→ chaque ligne est un couple `(x, t)`. Le réseau apprend donc un **champ** `u(x,t)`.
+The first layer takes **2** inputs `(x, t)`. We assemble the columns with `torch.cat([x, t], dim=1)`
+→ each row is a pair `(x, t)`. So the network learns a **field** `u(x,t)`.
 
-**② Échantillonnage : x et t séparés**
+**② Sampling: x and t kept separate**
 ```python
-xc = torch.rand(N_COL,1, requires_grad=True)            # interieur (PDE)
+xc = torch.rand(N_COL,1, requires_grad=True)            # interior (PDE)
 tc = (torch.rand(N_COL,1) * T).requires_grad_(True)
-xi = torch.rand(N_IC,1);  ti = torch.zeros(N_IC,1);  ui = torch.sin(pi*xi)   # condition initiale
-tb = torch.rand(N_BC,1)*T; x0 = torch.zeros(N_BC,1); x1 = torch.ones(N_BC,1) # bords
+xi = torch.rand(N_IC,1);  ti = torch.zeros(N_IC,1);  ui = torch.sin(pi*xi)   # initial condition
+tb = torch.rand(N_BC,1)*T; x0 = torch.zeros(N_BC,1); x1 = torch.ones(N_BC,1) # boundaries
 ```
-- On garde `xc` et `tc` comme **tenseurs distincts** (tous deux `requires_grad`) pour pouvoir dériver
-  **séparément** par rapport à chacun.
-- Trois familles de points : **intérieur** (où on impose le PDE), **t=0** (condition initiale, avec
-  les valeurs cibles `sin(πx)`), **bords x=0/x=1** (où `u` doit valoir 0). Les points CI/CL n'ont
-  *pas* besoin de `requires_grad` : ce sont des contraintes de **valeur**, on n'y dérive pas.
+- We keep `xc` and `tc` as **separate tensors** (both `requires_grad`) so we can differentiate w.r.t.
+  **each** independently.
+- Three families of points: **interior** (where we impose the PDE), **t=0** (initial condition, with
+  target values `sin(πx)`), **boundaries x=0/x=1** (where `u` must be 0). The IC/BC points do *not*
+  need `requires_grad`: they are **value** constraints, no differentiation there.
 
-**③ Dérivées partielles**
+**③ Partial derivatives**
 ```python
 u    = model(torch.cat([xc, tc], dim=1))
 u_t  = torch.autograd.grad(u,   tc, torch.ones_like(u),   create_graph=True)[0]  # ∂u/∂t
 u_x  = torch.autograd.grad(u,   xc, torch.ones_like(u),   create_graph=True)[0]  # ∂u/∂x
 u_xx = torch.autograd.grad(u_x, xc, torch.ones_like(u_x), create_graph=True)[0]  # ∂²u/∂x²
 ```
-`u` dépend de `xc` **et** `tc` (via le `cat`). Dériver par rapport à `tc` donne `∂u/∂t` ; par rapport
-à `xc`, `∂u/∂x` ; re-dériver `u_x` par rapport à `xc` donne `∂²u/∂x²`. C'est toute la différence avec
-l'oscillateur : des dérivées **partielles**, une par direction.
+`u` depends on `xc` **and** `tc` (via the `cat`). Differentiating w.r.t. `tc` gives `∂u/∂t`; w.r.t.
+`xc`, `∂u/∂x`; re-differentiating `u_x` w.r.t. `xc` gives `∂²u/∂x²`. That's the whole difference vs the
+oscillator: **partial** derivatives, one per direction.
 
-**④ Trois termes de loss**
+**④ Three loss terms**
 ```python
-loss_phys = ((u_t - ALPHA*u_xx)**2).mean()                       # le PDE
+loss_phys = ((u_t - ALPHA*u_xx)**2).mean()                       # the PDE
 loss_ic   = ((model(cat([xi,ti])) - ui)**2).mean()               # u(x,0)=sin(pi x)
 loss_bc   = (model(cat([x0,tb]))**2).mean() + (model(cat([x1,tb]))**2).mean()  # u(0,t)=u(1,t)=0
 loss = loss_phys + W_IC*loss_ic + W_BC*loss_bc
 ```
-Le PDE (résidu), la condition **initiale** (match de valeur en t=0) et les conditions aux **limites**
-(zéro aux bords) — chacun son terme, pondéré par `W_IC`/`W_BC`. Sans CI+CL, la solution ne serait pas
-unique (cf. la leçon de 2.1).
+The PDE (residual), the **initial** condition (value match at t=0) and the **boundary** conditions
+(zero at the ends) — each its own term, weighted by `W_IC`/`W_BC`. Without IC+BC the solution would
+not be unique (cf. the 2.1 lesson).
 
 ---
 
@@ -175,13 +190,13 @@ The cases above just re-solve equations whose answer we already know — useful 
 validate** the method. A PINN earns its keep where a classical solver or an analytic formula **cannot
 go**: **inverse problems**.
 
-Here the diffusivity **α is unknown**. We only have **40 noisy "sensor" measurements** of `u`. The
-PINN learns the field `u(x,t)` *and* α at once, combining a **data** loss (fit the measurements) with
-the **physics** loss (`u_t = α·u_xx`, with α a trainable parameter).
+Here the thermal diffusivity **α (m²/s) is unknown**. We only have **40 noisy "sensor" measurements**
+of `u`. The PINN learns the field `u(x,t)` *and* α at once, combining a **data** loss (fit the
+measurements) with the **physics** loss (`u_t = α·u_xx`, with α a trainable parameter).
 
 ![Inverse PINN](results/figures/pinn_heat_inverse.png)
 
-- **α recovered ≈ 0.44** (true 0.4, ~10 % with noisy data) — starting from a deliberately wrong 1.5.
+- **α recovered ≈ 0.44 m²/s** (true 0.4, ~10 % with noisy data) — starting from a deliberately wrong 1.5.
 - The **full field is reconstructed (R² = 0.99)** from just 40 scattered points.
 
 Run: `python src/pinn_heat_inverse.py`
@@ -199,6 +214,7 @@ or scattered PIV points — something classical forward solvers don't naturally 
 ---
 
 ## Next steps
-- **2.3** — flow case (Burgers, then steady flow features) toward the NACA 0012 context.
+- **2.3** — flow case: Burgers' equation `u_t + u·u_x = ν·u_xx` (kinematic viscosity **ν**, m²/s), the
+  non-linear convective term, then steady flow features toward the NACA 0012 context.
 
 Foundations: see the PyTorch guide [`../../docs/pytorch_guide.md`](../../docs/pytorch_guide.md) (§5 autograd).

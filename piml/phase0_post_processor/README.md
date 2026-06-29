@@ -11,6 +11,19 @@ quantified. This phase is the data foundation for the Phase 1 surrogate models.
 > *data* error — and honestly report how my own CFD compares to it. As shown below, this
 > workflow immediately **caught a setup bug** in my first Fluent run.
 
+## Physical quantities
+
+| Symbol | Meaning | Unit |
+|---|---|---|
+| **α** | angle of attack | degrees (°) |
+| **Cl, Cd** | lift / drag coefficients (non-dimensional forces) | dimensionless |
+| **L/D** | lift-to-drag ratio (aerodynamic efficiency) | dimensionless |
+| **Re** | Reynolds number, `Re = ρ·V·c/μ` | dimensionless |
+| **V∞** | free-stream velocity | m/s |
+| **ρ** | air density | kg/m³ |
+| **c, S_ref** | chord / reference area (c × span) | m, m² |
+| **q∞** | dynamic pressure, `q∞ = ½ρV∞²` | Pa |
+
 ---
 
 ## V&V result — debugging my Fluent setup, iteration by iteration
