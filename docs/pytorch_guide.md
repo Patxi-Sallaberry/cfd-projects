@@ -902,6 +902,18 @@ loss = ((model(Td) - Ud) ** 2).mean() + W_PHYS * (residual_on(tc) ** 2).mean()
 Exemple : `piml/phase2_pinns/src/pinn_oscillator_extrapolation.py` (la physique extrapole ~225× mieux
 qu'un fit data-only dans la zone sans données).
 
+### 20.10 Systèmes d'équations (plusieurs sorties)
+
+Pour un **système** (ex. Navier-Stokes 2D : 3 équations, sorties `u, v, p`), le réseau a **plusieurs
+sorties** qu'on découpe, et la loss **somme un résidu par équation** :
+```python
+out = model(torch.cat([x, y], 1));  u, v, p = out[:, 0:1], out[:, 1:2], out[:, 2:3]
+loss_phys = (r_momentum_x ** 2).mean() + (r_momentum_y ** 2).mean() + (r_continuite ** 2).mean()
+```
+Astuce : imposer une variable au **bord** (ex. la pression) **fixe sa constante** quand l'équation ne
+la détermine qu'à une constante près. Exemple complet : `piml/phase2_pinns/src/pinn_navier_stokes.py`
+(écoulement de Kovasznay, validé contre la solution exacte de Navier-Stokes).
+
 ### Pièges spécifiques aux PINNs
 
 | Symptôme | Cause |

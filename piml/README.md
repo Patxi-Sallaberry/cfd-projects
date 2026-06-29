@@ -7,7 +7,7 @@ Each phase is self-contained with its own README.
 |---|---|---|---|
 | 0 | [`phase0_post_processor`](./phase0_post_processor) | Python CFD post-processor + **V&V** (reference polar vs my own Fluent run) | ✅ |
 | 1 | [`phase1_surrogate`](./phase1_surrogate) | **PyTorch surrogate** (α, Re) → (Cl, Cd), 1D & 2D + browser demo | ✅ |
-| 2 | [`phase2_pinns`](./phase2_pinns) | **Physics-Informed NNs** — solve equations from physics alone (1st PINN ✅: damped oscillator) | 🚧 in progress |
+| 2 | [`phase2_pinns`](./phase2_pinns) | **Physics-Informed NNs** — ODE, PDEs, inverse problem, up to 2-D **Navier–Stokes** | ✅ |
 | 3 | [`phase3_optimization`](./phase3_optimization) | Shape **optimization** using the surrogate + dashboard | ◻ planned |
 
 **Live demo (Phase 1):** https://patxi-sallaberry.github.io/cfd-projects/

@@ -382,10 +382,74 @@ loss = loss_phys + 20*loss_ic + 20*loss_bc
 
 ---
 
-## Next steps
-- **2.4** — toward real flow: a 2-D steady incompressible case (e.g. lid-driven cavity or flow past a
-  body) with the **Navier–Stokes** residual — the same convective term `u·∇u`, now coupled with the
-  continuity (mass-conservation) equation.
+## 2.4 — 2-D Navier–Stokes: solving a real flow ✅
+
+The finale: the **full incompressible Navier–Stokes equations** in 2-D — **3 coupled equations** and
+**3 outputs** `(u, v, p)` (x-velocity, y-velocity, pressure).
+
+### The equations, in plain words
+- **x-momentum** `u·u_x + v·u_y = −p_x + ν(u_xx + u_yy)` — how the flow accelerates in x: convection
+  (the flow carrying itself) balanced by the pressure push and viscous friction.
+- **y-momentum** — the same in y.
+- **continuity** `u_x + v_y = 0` — **mass conservation** (what flows in flows out; incompressible).
+
+`ν` is the kinematic viscosity (m²/s) = 1/Re. The convective terms `u·u_x`, `v·u_y` are the non-linear
+heart — the 2-D version of the Burgers term from 2.3.
+
+### The case: Kovasznay flow (Re = 40)
+A steady 2-D flow that has an **exact analytic solution** of Navier–Stokes — the perfect V&V
+benchmark. We impose the exact `(u, v, p)` on the domain boundary and minimize the 3 residuals inside.
+
+![Kovasznay PINN](results/figures/pinn_navier_stokes.png)
+
+Left: exact streamlines. Middle: the PINN's learned flow (visually identical). Right: the tiny error.
+Validation vs the exact solution: **R² = 1.000 (u), 0.9999 (v), 1.000 (p)**. The network learned a real
+2-D velocity-and-pressure field from the physics alone. Run: `python src/pinn_navier_stokes.py`
+
+### Understanding the code step by step
+
+**One network, three outputs:**
+```python
+model = nn.Sequential(nn.Linear(2,40), nn.Tanh(), ..., nn.Linear(40, 3))   # (x,y) -> (u,v,p)
+out = model(torch.cat([xc, yc], 1))
+u, v, p = out[:, 0:1], out[:, 1:2], out[:, 2:3]                            # split the 3 outputs
+```
+
+**All the partial derivatives** (autograd; x and y kept as separate tensors):
+```python
+u_x, u_y = grad(u, xc), grad(u, yc)
+v_x, v_y = grad(v, xc), grad(v, yc)
+p_x, p_y = grad(p, xc), grad(p, yc)
+u_xx, u_yy = grad(u_x, xc), grad(u_y, yc)
+v_xx, v_yy = grad(v_x, xc), grad(v_y, yc)
+```
+
+**The three Navier–Stokes residuals** — the equations written literally:
+```python
+r_mx = u*u_x + v*u_y + p_x - NU*(u_xx + u_yy)     # x-momentum
+r_my = u*v_x + v*v_y + p_y - NU*(v_xx + v_yy)     # y-momentum
+r_c  = u_x + v_y                                  # continuity (mass)
+loss_phys = (r_mx**2).mean() + (r_my**2).mean() + (r_c**2).mean()
+loss_bc   = ((model(Bxy) - Buvp)**2).mean()       # exact (u,v,p) imposed on the boundary
+loss = loss_phys + 10*loss_bc
+```
+The recipe is *exactly* the same as the previous PINNs — only bigger: 3 outputs, 3 equations, more
+derivatives. Imposing `(u,v,p)` on the boundary also **fixes the pressure constant** (otherwise
+pressure is only defined up to an additive constant).
+
+> This is the very machinery you would point at flow around a NACA 0012: replace the box boundary by
+> the airfoil surface (no-slip) plus a far-field, and the residual stays the Navier–Stokes equations.
+
+---
+
+## Phase 2 — done ✅
+
+EDO → linear PDE → inverse problem → extrapolation → non-linear PDE (shock) → **2-D Navier–Stokes**.
+The full PINN toolbox is built and validated.
+
+**Possible extensions:** apply the NS PINN to a real airfoil geometry (no-slip on the NACA 0012
+surface), or **couple Phases 1 & 2** — e.g. use sparse CFD/experimental points + the NS residual to
+reconstruct a full flow field and infer parameters.
 
 Foundations: see the PyTorch guide [`../../docs/pytorch_guide.md`](../../docs/pytorch_guide.md)
 (§5 autograd, §20 PINNs).
