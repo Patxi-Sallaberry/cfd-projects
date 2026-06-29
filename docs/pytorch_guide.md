@@ -883,6 +883,21 @@ for epoch in range(20000):
     loss.backward(); opt.step()
 ```
 
+### 20.9 La physique comme régularisation (extrapolation)
+
+Le terme physique ne sert pas qu'à résoudre une équation : il **contraint la solution partout**, même
+là où il n'y a **aucune donnée**. Un modèle data-only ne sait pas extrapoler hors de ses données ; en
+ajoutant le résidu de l'équation sur des points de collocation couvrant **tout** le domaine, le réseau
+**prolonge** une solution physiquement valide dans les zones non mesurées.
+```python
+# A : donnees seules -> diverge hors des donnees
+loss = ((model(Td) - Ud) ** 2).mean()
+# B : donnees + physique (collocation sur TOUT le domaine) -> extrapole correctement
+loss = ((model(Td) - Ud) ** 2).mean() + W_PHYS * (residual_on(tc) ** 2).mean()
+```
+Exemple : `piml/phase2_pinns/src/pinn_oscillator_extrapolation.py` (la physique extrapole ~225× mieux
+qu'un fit data-only dans la zone sans données).
+
 ### Pièges spécifiques aux PINNs
 
 | Symptôme | Cause |

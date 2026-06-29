@@ -264,6 +264,42 @@ or scattered PIV points — something classical forward solvers don't naturally 
 
 ---
 
+## 2.2c — Physics enables extrapolation beyond the data ✅ — *another reason PINNs matter*
+
+A second, distinct proof of usefulness. We give noisy measurements of the damped oscillator **only on
+the first third of the time** (t ∈ [0, 0.4]) and compare two models — *same architecture* — over the
+full [0, 1]:
+
+![Extrapolation](results/figures/pinn_extrapolation.png)
+
+- **A — data only** (red): fits the measured region, then **diverges** in the no-data zone — it has no
+  constraint there, so it has no reason to behave.
+- **B — data + physics** (green, PINN): the ODE residual forces it to keep obeying the dynamics, so it
+  **correctly continues the oscillation** where there is *no data at all*.
+
+In the no-data zone [0.4, 1] the PINN is **~225× more accurate** (RMSE 0.005 vs 1.11).
+
+**Why this matters.** Pure ML cannot extrapolate beyond its data — nothing constrains it there. The
+physics acts as a **regularizer** that constrains the solution *everywhere*, even where measurements
+are missing. In a CFD context: from sensors in one region you can extend a physically-consistent field
+into regions you never measured.
+
+Run: `python src/pinn_oscillator_extrapolation.py`
+
+### What's new in the code
+Two models, **same network**, trained differently:
+```python
+# A: data only
+loss = ((mA(Td) - Ud)**2).mean()
+# B: data + physics residual over the WHOLE domain (collocation points everywhere, incl. the no-data zone)
+loss = ((mB(Td) - Ud)**2).mean() + 1e-4 * ((u_tt + 2*DELTA*u_t + OMEGA0**2*u)**2).mean()
+```
+The only addition in B is the physics term, evaluated on collocation points covering all of [0, 1] —
+including the unmeasured part. That single term is what enables the extrapolation. (No explicit initial
+condition is needed: the data near t=0 already anchors the solution.)
+
+---
+
 ## Next steps
 - **2.3** — flow case: Burgers' equation `u_t + u·u_x = ν·u_xx` (kinematic viscosity **ν**, m²/s), the
   non-linear convective term, then steady flow features toward the NACA 0012 context.
