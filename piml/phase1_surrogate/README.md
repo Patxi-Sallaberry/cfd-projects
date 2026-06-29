@@ -310,6 +310,46 @@ un point de fonctionnement neuf prédit **instantanément**.
 > 10⁵–1.5·10⁶, ce serait de l'**extrapolation**, bien moins fiable — un modèle ne sait pas inventer
 > ce qu'il n'a jamais approché.
 
+## Comprendre le 2D : ce qui change vs le 1D
+
+Passer du 1D au 2D n'a demandé que **trois vrais changements** ; tout le reste (normalisation,
+boucle, scheduler, early stopping) est **identique**.
+
+**1. Construire l'entrée `[α, log10(Re)]`**
+```python
+X = np.column_stack([A, np.log10(Re)]).astype("float32")   # (N, 2)
+```
+`column_stack` colle deux colonnes → chaque ligne = `[angle, log10(Reynolds)]`. **Pourquoi `log10`
+de Re ?** Re varie d'un facteur ~15 (10⁵ → 1.5·10⁶). En log, ça devient une échelle régulière (5 → 6)
+où chaque pas de Reynolds compte autant ; sinon sa dynamique énorme noierait les écarts fins. C'est
+du **feature engineering**.
+
+**2. Une couche d'entrée à 2 neurones**
+```python
+nn.Linear(2, 64)   # au lieu de nn.Linear(1, 64)
+```
+C'est le seul changement d'architecture. La normalisation devient *vectorielle* : `Xtr.mean(0)` /
+`Xtr.std(0)` renvoient maintenant **2 valeurs** (une par colonne) → chaque entrée est mise à sa
+propre échelle.
+
+**3. Une fonction d'inférence**
+```python
+def pred(a, re):
+    Xq = nx(np.column_stack([a, np.log10(np.full_like(a, re))]).astype("float32"))
+    with torch.no_grad():
+        return dny(model(torch.tensor(Xq)).numpy())
+```
+On reconstruit la **même** entrée `[α, log10(Re)]` (avec le **même** scaler `nx`) pour prédire. Le
+`torch.no_grad()` est requis : en inférence pas de graphe → sinon `.numpy()` échoue sur un tenseur
+qui suit le gradient.
+
+**La démo d'interpolation** (`Re = 3.5·10⁵`, hors grille) génère une référence fraîche avec NeuralFoil
+et la compare à la prédiction — si ça coïncide, le modèle a appris à **interpoler dans l'espace des
+Reynolds**, pas juste à mémoriser.
+
+> Le déclic : une fois le pipeline 1D maîtrisé, **ajouter une dimension est trivial**. C'est ça, la
+> maturité en ML.
+
 ---
 
 ## Files
