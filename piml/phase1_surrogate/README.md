@@ -279,16 +279,54 @@ p_dense = denorm_y(model(torch.tensor(norm_x(a_dense))).numpy())
 
 ---
 
+---
+
+# Extension — Surrogate 2D : (α, Re) → (Cl, Cd)
+
+Au lieu d'une seule courbe, le modèle apprend **toute une famille de polaires** (315 points :
+45 angles × 7 Reynolds de 10⁵ à 1.5·10⁶) et sait **interpoler** à un Reynolds jamais vu.
+
+**Nouveauté technique — `log(Re)`.** Le Reynolds varie d'un facteur ~15 → on le passe en
+`log10(Re)` avant de normaliser, sinon son échelle écraserait l'information. C'est du *feature
+engineering*. Entrée du réseau : `[alpha, log10(Re)]`, architecture `2 → 64 → 64 → 2`.
+
+## La famille de polaires apprise
+
+![Famille de polaires](results/figures/surrogate_2d_family.png)
+
+Points = données, lignes = surrogate. Le modèle capture toute la famille, **physique comprise** :
+plus Re augmente, plus le **décrochage** est tardif et le **Cd** faible. Validation : R² = 0.999 (Cl),
+0.994 (Cd).
+
+## La preuve : interpolation à un Re jamais vu
+
+![Interpolation Re=3.5e5](results/figures/surrogate_2d_interpolation.png)
+
+À **Re = 3.5·10⁵** (absent de la grille d'entraînement), le surrogate (rouge) colle à la référence
+NeuralFoil (pointillés) : **RMSE Cl = 0.008, Cd = 0.0023**. C'est *ça*, la puissance d'un surrogate —
+un point de fonctionnement neuf prédit **instantanément**.
+
+> ⚠️ **Honnêteté** : c'est de l'**interpolation** (entre des Re connus). En dehors de la plage
+> 10⁵–1.5·10⁶, ce serait de l'**extrapolation**, bien moins fiable — un modèle ne sait pas inventer
+> ce qu'il n'a jamais approché.
+
+---
+
 ## Files
 
 ```
 phase1_surrogate/
-├── data/naca0012_surrogate_dataset.csv   # 89 pts, alpha -6..16, Re=4e5 (NeuralFoil)
-├── src/make_dataset.py                    # regenerates the dataset
-├── src/train_surrogate.py                 # train/val loop + early stopping + plots
-├── results/figures/learning_curves.png    # train vs validation loss
-├── results/figures/surrogate_fit.png      # data vs surrogate
-├── results/surrogate_naca0012.pt          # best weights (early stopping)
+├── data/naca0012_surrogate_dataset.csv   # 1D : 89 pts, alpha -6..16, Re=4e5
+├── data/naca0012_surrogate_2d.csv        # 2D : 315 pts (45 alpha x 7 Re)
+├── src/make_dataset.py                    # 1D dataset
+├── src/make_dataset_2d.py                 # 2D dataset (grille alpha x Re)
+├── src/train_surrogate.py                 # 1D : train/val + early stopping + scheduler
+├── src/train_surrogate_2d.py              # 2D : + log(Re) + demo interpolation
+├── results/figures/learning_curves.png    # 1D : train vs val
+├── results/figures/surrogate_fit.png      # 1D : data vs surrogate
+├── results/figures/surrogate_2d_*.png     # 2D : courbes, famille, interpolation
+├── results/surrogate_naca0012.pt          # 1D : poids
+├── results/surrogate_2d_naca0012.pt       # 2D : poids
 └── requirements.txt
 ```
 
@@ -297,8 +335,12 @@ phase1_surrogate/
 ```bash
 cd cfd-projects/piml/phase1_surrogate
 pip install -r requirements.txt     # torch + neuralfoil + aerosandbox
-python src/make_dataset.py          # (re)generate the dataset
-python src/train_surrogate.py       # train + evaluate + plot
+
+python src/make_dataset.py          # 1D dataset
+python src/train_surrogate.py       # 1D : train + evaluate + plot
+
+python src/make_dataset_2d.py       # 2D dataset (alpha x Re)
+python src/train_surrogate_2d.py    # 2D : train + interpolation demo
 ```
 
 ## Next step
