@@ -43,7 +43,7 @@ cfd-projects/
 |---|---|---|
 | **0** | CFD post-processor + Verification & Validation | ✅ done |
 | **1** | Surrogate model (α, Re) → (Cl, Cd) — PyTorch, runs in the browser | ✅ done |
-| **2** | Physics-Informed Neural Networks (PINNs) | ◻ planned |
+| **2** | Physics-Informed Neural Networks (PINNs) | 🚧 in progress |
 | **3** | Shape optimization + dashboard | ◻ planned |
 
 → Start here: [`piml/`](./piml)
