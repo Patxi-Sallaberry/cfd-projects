@@ -119,6 +119,54 @@ The sine bump decays in amplitude over time — that's diffusion. Run: `python s
 
 Otherwise the recipe is identical: minimize the residual `(u_t − α·u_xx)²` at collocation points.
 
+### Comprendre le code pas à pas
+
+Seuls les **changements** vs l'oscillateur (2.1) sont détaillés — les concepts communs (autograd,
+`grad_outputs`, `create_graph`, `tanh`, pondération) sont expliqués dans le walk-through de 2.1.
+
+**① Réseau à 2 entrées**
+```python
+model = nn.Sequential(nn.Linear(2,32), nn.Tanh(), ... , nn.Linear(32,1))
+# appel : model(torch.cat([x, t], dim=1))
+```
+La 1ʳᵉ couche prend **2** entrées `(x, t)`. On assemble les colonnes avec `torch.cat([x, t], dim=1)`
+→ chaque ligne est un couple `(x, t)`. Le réseau apprend donc un **champ** `u(x,t)`.
+
+**② Échantillonnage : x et t séparés**
+```python
+xc = torch.rand(N_COL,1, requires_grad=True)            # interieur (PDE)
+tc = (torch.rand(N_COL,1) * T).requires_grad_(True)
+xi = torch.rand(N_IC,1);  ti = torch.zeros(N_IC,1);  ui = torch.sin(pi*xi)   # condition initiale
+tb = torch.rand(N_BC,1)*T; x0 = torch.zeros(N_BC,1); x1 = torch.ones(N_BC,1) # bords
+```
+- On garde `xc` et `tc` comme **tenseurs distincts** (tous deux `requires_grad`) pour pouvoir dériver
+  **séparément** par rapport à chacun.
+- Trois familles de points : **intérieur** (où on impose le PDE), **t=0** (condition initiale, avec
+  les valeurs cibles `sin(πx)`), **bords x=0/x=1** (où `u` doit valoir 0). Les points CI/CL n'ont
+  *pas* besoin de `requires_grad` : ce sont des contraintes de **valeur**, on n'y dérive pas.
+
+**③ Dérivées partielles**
+```python
+u    = model(torch.cat([xc, tc], dim=1))
+u_t  = torch.autograd.grad(u,   tc, torch.ones_like(u),   create_graph=True)[0]  # ∂u/∂t
+u_x  = torch.autograd.grad(u,   xc, torch.ones_like(u),   create_graph=True)[0]  # ∂u/∂x
+u_xx = torch.autograd.grad(u_x, xc, torch.ones_like(u_x), create_graph=True)[0]  # ∂²u/∂x²
+```
+`u` dépend de `xc` **et** `tc` (via le `cat`). Dériver par rapport à `tc` donne `∂u/∂t` ; par rapport
+à `xc`, `∂u/∂x` ; re-dériver `u_x` par rapport à `xc` donne `∂²u/∂x²`. C'est toute la différence avec
+l'oscillateur : des dérivées **partielles**, une par direction.
+
+**④ Trois termes de loss**
+```python
+loss_phys = ((u_t - ALPHA*u_xx)**2).mean()                       # le PDE
+loss_ic   = ((model(cat([xi,ti])) - ui)**2).mean()               # u(x,0)=sin(pi x)
+loss_bc   = (model(cat([x0,tb]))**2).mean() + (model(cat([x1,tb]))**2).mean()  # u(0,t)=u(1,t)=0
+loss = loss_phys + W_IC*loss_ic + W_BC*loss_bc
+```
+Le PDE (résidu), la condition **initiale** (match de valeur en t=0) et les conditions aux **limites**
+(zéro aux bords) — chacun son terme, pondéré par `W_IC`/`W_BC`. Sans CI+CL, la solution ne serait pas
+unique (cf. la leçon de 2.1).
+
 ---
 
 ## Next steps
