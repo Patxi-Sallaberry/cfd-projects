@@ -169,6 +169,35 @@ unique (cf. la leçon de 2.1).
 
 ---
 
+## 2.2b — Inverse problem: recovering an unknown parameter ✅ — *why PINNs matter*
+
+The cases above just re-solve equations whose answer we already know — useful only to **learn and
+validate** the method. A PINN earns its keep where a classical solver or an analytic formula **cannot
+go**: **inverse problems**.
+
+Here the diffusivity **α is unknown**. We only have **40 noisy "sensor" measurements** of `u`. The
+PINN learns the field `u(x,t)` *and* α at once, combining a **data** loss (fit the measurements) with
+the **physics** loss (`u_t = α·u_xx`, with α a trainable parameter).
+
+![Inverse PINN](results/figures/pinn_heat_inverse.png)
+
+- **α recovered ≈ 0.44** (true 0.4, ~10 % with noisy data) — starting from a deliberately wrong 1.5.
+- The **full field is reconstructed (R² = 0.99)** from just 40 scattered points.
+
+Run: `python src/pinn_heat_inverse.py`
+
+**Why this is the whole point.** You *cannot* do this with the analytic formula — it requires already
+knowing α. This is **data assimilation / parameter inference**: from sparse, noisy measurements +
+physics, recover hidden quantities *and* the complete field. In a CFD context: infer an effective
+viscosity or an unknown boundary condition, and reconstruct the flow field, from a few pressure taps
+or scattered PIV points — something classical forward solvers don't naturally do.
+
+> **Honest takeaway on Phase 2 so far:** 2.1 and 2.2 are *validation* exercises (known answers); 2.2b
+> is the *real* use case. You always validate the machinery on a solved problem before trusting it on
+> an unsolved one.
+
+---
+
 ## Next steps
 - **2.3** — flow case (Burgers, then steady flow features) toward the NACA 0012 context.
 
