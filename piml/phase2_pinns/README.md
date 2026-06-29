@@ -300,32 +300,85 @@ condition is needed: the data near t=0 already anchors the solution.)
 
 ---
 
-## 2.3 — Burgers' equation (a non-linear PDE → shock) ✅
+## 2.3 — Burgers' equation: a non-linear PDE that forms a shock ✅
 
-The non-linear case: `u_t + u·u_x = ν·u_xx`, with `u(x,0) = −sin(πx)`, ends held at 0, and kinematic
-viscosity **ν = 0.01/π m²/s**. The convective term `u·u_x` steepens the profile into a
-near-discontinuity (a **shock**) near x=0; viscosity ν keeps it finite. There is no simple closed
-form — so it is **validated against a finite-difference solver**. **R² = 0.999** vs that reference.
-This is the historical PINN benchmark (Raissi et al., 2019).
+### What this equation means, in plain words
 
-![Burgers PINN](results/figures/pinn_burgers.png)
+$$\underbrace{u_t}_{\text{change in time}} \;+\; \underbrace{u\,u_x}_{\text{the wave transports itself}} \;=\; \underbrace{\nu\,u_{xx}}_{\text{viscous smoothing}}$$
 
-Left: the profile steepens over time into a shock at x=0 (PINN solid vs FD dashed). Right: the learned
-space-time field `u(x,t)`. Run: `python src/pinn_burgers.py`
+`u(x,t)` is a 1-D wave (think of a velocity profile). Term by term:
+- **`u_t`** — how `u` changes over time at a fixed point.
+- **`u·u_x`** — *convection*: each point of the wave moves at a speed **equal to its own height `u`**.
+  This is the **non-linear** term (u multiplies its own derivative); it is the 1-D cousin of the
+  `u·∇u` term in Navier–Stokes.
+- **`ν·u_xx`** — *diffusion*: viscosity (**ν**, m²/s) smooths sharp gradients.
 
-**What's new vs the heat equation (2.2):**
-- A **non-linear** term `u·u_x` in the residual — the field transports itself (the **convective** term,
-  exactly what makes Navier–Stokes hard). In code it is simply:
-  ```python
-  loss_phys = ((u_t + u*u_x - NU*u_xx) ** 2).mean()
-  ```
-  autograd handles the derivatives; the non-linearity is just the `u * u_x` product.
-- A sharper solution → a slightly **deeper network** (4 hidden layers) + a `StepLR` scheduler help.
-- **Validation without an analytic formula:** we compare to a finite-difference solver
-  (`fd_reference()`) — the V&V reflex when no exact solution exists.
+Set-up: `x ∈ [−1, 1]`, `t ∈ [0, 1]`, initial profile `u(x,0) = −sin(πx)`, ends held at 0,
+`ν = 0.01/π ≈ 0.0032`.
+
+### Why a shock forms (the key intuition)
+
+Because each point travels at its own speed `u`, the **fast parts catch up to the slow parts**:
+
+![Why a shock forms](results/figures/burgers_intuition.png)
+
+On the **left half** `u > 0` → those points move **right**; on the **right half** `u < 0` → they move
+**left**. They **collide at x = 0**, piling up into an ever-steeper front. Viscosity stops it from
+going truly vertical → a **shock** (a very thin, very steep transition).
+
+### Watch it happen
+
+Marching the equation forward in time (finite-difference reference), the smooth sine **steepens** into
+a near-vertical front at x = 0:
+
+![Shock formation over time](results/figures/burgers_evolution.png)
+
+### The PINN result
+
+The PINN learns this whole space–time field from the physics alone (residual + initial + boundary
+conditions, **no data**), and matches the finite-difference reference at **R² = 0.999**:
+
+![Burgers PINN vs FD](results/figures/pinn_burgers.png)
+
+Left: profiles at several times (PINN solid vs FD dashed) — same steepening. Right: the learned field
+`u(x,t)` (red = positive, blue = negative, sharp transition at x = 0). This is the historical PINN
+benchmark (Raissi et al., 2019).
+Run: `python src/pinn_burgers.py` · the two intuition figures: `python src/burgers_illustrate.py`
+
+### Understanding the code step by step
+
+**(a) The finite-difference reference** (`fd_reference`) — our "ground truth", since there is no
+formula. It is the *classical* way to solve a PDE: discretize space into a grid and step forward in
+tiny time steps.
+```python
+lap[1:-1]  = (un[2:] - 2*un[1:-1] + un[:-2]) / dx**2          # u_xx : central difference
+dudx[1:-1] = np.where(un[1:-1] >= 0,
+                      (un[1:-1] - un[:-2]) / dx,               # u_x : "upwind" — take the side the
+                      (un[2:]   - un[1:-1]) / dx)              #   flow comes from (stable near shocks)
+new = un + dt * (-un*dudx + NU*lap)                          # one step of u_t = -u*u_x + nu*u_xx
+new[0] = new[-1] = 0                                          # boundary conditions
+```
+We march `nt` steps and keep the whole `U[t, x]` array — that is the reference field.
+
+**(b) The PINN** — the same recipe as 2.2; the only real change is the residual:
+```python
+u    = model(torch.cat([xc, tc], 1))
+u_t  = torch.autograd.grad(u,   tc, torch.ones_like(u),   create_graph=True)[0]
+u_x  = torch.autograd.grad(u,   xc, torch.ones_like(u),   create_graph=True)[0]
+u_xx = torch.autograd.grad(u_x, xc, torch.ones_like(u_x), create_graph=True)[0]
+loss_phys = ((u_t + u*u_x - NU*u_xx) ** 2).mean()            # <- the new bit: u*u_x is non-linear
+loss_ic   = ((model(cat([xi, ti])) - (-torch.sin(np.pi*xi))) ** 2).mean()   # u(x,0) = -sin(pi x)
+loss_bc   = (model(cat([x_left, tb]))**2).mean() + (model(cat([x_right, tb]))**2).mean()  # ends = 0
+loss = loss_phys + 20*loss_ic + 20*loss_bc
+```
+- The non-linearity is literally the product `u * u_x`: autograd gives `u_x`, we multiply by `u`. No
+  special trick — the residual just reads like the equation.
+- Because the front is sharp, we use a slightly **deeper** network (4 hidden layers) and a **StepLR**
+  scheduler (halve `lr` every 4000 epochs) for stable late training.
+- No analytic solution → we **validate against `fd_reference()`** (the V&V reflex).
 
 > The convective term `u·u_x` is the bridge to real flows: the same `u·∇u` term sits inside
-> Navier–Stokes.
+> Navier–Stokes. Master it here and the 2-D flow case (2.4) is the same idea with more terms.
 
 ---
 
