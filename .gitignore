@@ -18,5 +18,11 @@ piml/*/outputs/*.png
 # Fichiers de donnees d'exemple / placeholder (jamais de fausses donnees dans le repo)
 *_EXAMPLE.csv
 
+# Node / web (Vite app dans web/)
+node_modules/
+web/dist/
+*.local
+.playwright-mcp/
+
 # OS
 .DS_Store
