@@ -1,72 +1,77 @@
-# CFD & CAO Projects — Patxi Sallaberry
+# CFD × PIML — Patxi Sallaberry
 
-Ingénieur en formation (INSA Toulouse — Ingénierie Systèmes), ce repo regroupe mes projets personnels de simulation numérique et de modélisation 3D, réalisés en dehors du cursus académique pour développer des compétences en aérodynamique et mécanique des fluides computationnelle.
+Aerodynamics meets machine learning. This repository gathers my self-driven work toward becoming a
+**CFD × Physics-Informed Machine Learning** engineer: high-fidelity CFD simulations, and neural
+**surrogate models** that learn from them to predict aerodynamics in real time.
+
+*INSA Toulouse (Mechanical Engineering) · Erasmus @ Linköping University — Fall 2026.*
 
 ---
 
-## 🛠️ Outils
+## 🚀 Live demo
 
-| Domaine | Outils |
+**A neural surrogate of the NACA 0012 polar, running in your browser:**
+
+### → https://patxi-sallaberry.github.io/cfd-projects/
+
+Move the angle-of-attack (α) and Reynolds (Re) sliders and watch lift, drag and L/D update
+instantly — the airfoil tilts with α, and a PyTorch model (exported to JavaScript) runs the
+prediction **fully client-side**.
+
+---
+
+## 🗺️ Repository map
+
+```
+cfd-projects/
+├── piml/                       # CFD × ML roadmap (the core of this repo)
+│   ├── phase0_post_processor/    ✅ CFD post-processor + Verification & Validation
+│   ├── phase1_surrogate/         ✅ neural surrogate  (α, Re) → (Cl, Cd)
+│   ├── phase2_pinns/             ◻  physics-informed neural networks (next)
+│   └── phase3_optimization/      ◻  shape optimization + dashboard
+├── web/                        # the live demo site (Vite + React)
+├── naca0012-airfoil-CFD/       # standalone CFD study — NACA 0012 airfoil
+├── front-wing-CFD/             # standalone CFD study — Formula Student front wing
+└── docs/                       # method memos + a full zero→expert PyTorch guide
+```
+
+---
+
+## 🧠 PIML roadmap
+
+| Phase | Focus | Status |
+|---|---|---|
+| **0** | CFD post-processor + Verification & Validation | ✅ done |
+| **1** | Surrogate model (α, Re) → (Cl, Cd) — PyTorch, runs in the browser | ✅ done |
+| **2** | Physics-Informed Neural Networks (PINNs) | ◻ planned |
+| **3** | Shape optimization + dashboard | ◻ planned |
+
+→ Start here: [`piml/`](./piml)
+
+---
+
+## 🌀 CFD studies (ANSYS Fluent 2026 R1 · k-ω SST)
+
+- [`naca0012-airfoil-CFD/`](./naca0012-airfoil-CFD) — symmetric NACA 0012 airfoil, α = 15°, Re ≈ 4·10⁵.
+- [`front-wing-CFD/`](./front-wing-CFD) — Formula Student dual-element front wing (NACA 4412 inverted), Cl/Cd ≈ 3.19.
+
+---
+
+## 🛠️ Tools
+
+| Domain | Stack |
 |---|---|
-| CAO | Fusion 360, CATIA V5 |
-| CFD | ANSYS Fluent 2026 R1, OpenFOAM *(à venir)* |
-| Maillage | ANSYS Mechanical Meshing, ANSYS DesignModeler |
-| Post-processing | ANSYS CFD-Post, ParaView *(à venir)* |
-| Scripting | Python (génération de profils, automatisation) |
+| CAD | Fusion 360, CATIA V5 |
+| CFD | ANSYS Fluent 2026 R1, ANSYS Meshing |
+| ML | Python · PyTorch · NeuralFoil / AeroSandbox |
+| Web | Vite · React · TypeScript · Tailwind CSS · GSAP |
+
+## 📚 Docs
+
+- [`docs/pytorch_guide.md`](./docs/pytorch_guide.md) — a self-contained zero → expert PyTorch guide.
+- [`docs/fluent_reports_NACA0012.md`](./docs/fluent_reports_NACA0012.md) · [`docs/fluent_domain_mesh_NACA0012.md`](./docs/fluent_domain_mesh_NACA0012.md) — Fluent setup memos.
 
 ---
 
-## 📁 Projets
-
-### 🛩️ NACA 0012 — Simulation aérodynamique
-**Dossier :** [`naca0012-airfoil-CFD/`](./naca0012-airfoil-CFD)
-
-Simulation CFD d'un profil symétrique NACA 0012 à différents angles d'attaque.
-
-- **Solveur :** ANSYS Fluent 2026 R1
-- **Modèle de turbulence :** k-ω SST
-- **Régime :** stationnaire, incompressible
-- **Re ≈ 400 000** — V = 30 m/s, corde = 200 mm
-
-| α | Statut |
-|---|---|
-| 0° | À venir |
-| 5° | À venir |
-| 10° | À venir |
-| 15° | ✅ Simulé |
-
----
-
-### 🏎️ Formula Student Front Wing — Aileron bi-élément
-**Dossier :** [`front-wing-CFD/`](./front-wing-CFD)
-
-Simulation CFD d'un aileron avant Formula Student deux éléments (main plane + flap), profil NACA 4412 inversé. Géométrie générée par script Python dans Fusion 360.
-
-- **Solveur :** ANSYS Fluent 2026 R1
-- **Modèle de turbulence :** k-ω SST
-- **Régime :** stationnaire, incompressible, α = 15°
-- **Re ≈ 500 000** — V = 30 m/s, corde main plane = 250 mm
-
-| Paramètre | Résultat |
-|---|---|
-| Cl | **−0.52** (downforce ✅) |
-| Cd | **0.163** |
-| Cl/Cd | **3.19** |
-| Convergence | ~145 itérations |
-
----
-
-## 🗺️ Roadmap
-
-- [x] NACA 0012 — α = 15°
-- [ ] NACA 0012 — polaire complète (α = 0°, 5°, 10°, 15°)
-- [x] Formula Student front wing — α = 15°
-- [ ] Formula Student front wing — sweep angle de flap (0°, 15°, 30°)
-- [ ] Effet de sol — simulation en ground effect
-- [ ] Comparaison NACA 4412 vs 2412
-- [ ] Introduction OpenFOAM
-
----
-
-*Patxi Sallaberry — INSA Toulouse · Erasmus @ Linköping University (LiU) · Fall 2026*  
-*Contact : [LinkedIn](https://linkedin.com/in/patxi-sallaberry) · [GitHub](https://github.com/Patxi-Sallaberry)*
+*Patxi Sallaberry — INSA Toulouse · Erasmus @ Linköping University (LiU), Fall 2026*
+*[LinkedIn](https://linkedin.com/in/patxi-sallaberry) · [GitHub](https://github.com/Patxi-Sallaberry)*
