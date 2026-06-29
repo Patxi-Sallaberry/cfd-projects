@@ -442,14 +442,52 @@ pressure is only defined up to an additive constant).
 
 ---
 
+## 2.5 — Viscous flow around a real airfoil (NACA 4412) ✅
+
+Case 2.4 solved Navier–Stokes in a simple box. Here the **same equations** are solved around an actual
+**NACA 4412** geometry (the Formula Student wing profile) at α = 10°, with **no-slip on the airfoil
+surface** and a uniform free-stream far away.
+
+![Flow around the airfoil](results/figures/pinn_flow_airfoil.png)
+
+The PINN recovers a physically credible flow: the stream divides at the leading-edge stagnation point,
+accelerates over the suction side, and is **deflected downward behind the wing** (downwash — the
+signature of lift), with a wake. No-slip is enforced to ~3·10⁻⁵.
+
+### Honesty / scope
+- Solved at a **moderate, laminar Reynolds number (Re = 100)** so the PINN converges — an
+  **illustrative** viscous flow, **not** the real FS Reynolds (~10⁵, turbulent), which needs a
+  classical CFD solver (see [`../../front-wing-CFD`](../../front-wing-CFD)). The momentum residual
+  settles around 8·10⁻³ (approximate, not exact).
+- It is **one solved case (one angle)**: a PINN solves a single boundary-value problem per training.
+
+### "Flow for any angle?" → a parametric PINN
+To get the flow for *any* angle interactively, the next step is a **parametric** model with the angle
+as an extra input — `(x, y, α) → (u, v, p)` — trained over a range of angles at once, so a slider could
+update the whole field instantly (the Phase 1 surrogate idea, but for the field). That is a separate,
+heavier build.
+
+### What's new in the code (vs 2.4)
+- **Real geometry:** the NACA 4412 contour is built analytically and rotated by the angle of attack;
+  collocation points are sampled in the box and those **inside the airfoil are rejected**
+  (`matplotlib.path.Path.contains_points`).
+- **No-slip wall:** on the airfoil-surface points we impose `u = v = 0` (`loss_wall`).
+- **Free-stream / outlet:** `u = 1, v = 0` on inlet/top/bottom, `p = 0` at the outlet (fixes the
+  pressure constant).
+- The three Navier–Stokes residuals and the autograd machinery are exactly those of 2.4.
+
+Run: `python src/pinn_flow_airfoil.py` (heavy — ~20 min on CPU).
+
+---
+
 ## Phase 2 — done ✅
 
-EDO → linear PDE → inverse problem → extrapolation → non-linear PDE (shock) → **2-D Navier–Stokes**.
-The full PINN toolbox is built and validated.
+ODE → linear PDE → inverse problem → extrapolation → non-linear PDE (shock) → **2-D Navier–Stokes** →
+**viscous flow around a real airfoil**. The full PINN toolbox is built and validated.
 
-**Possible extensions:** apply the NS PINN to a real airfoil geometry (no-slip on the NACA 0012
-surface), or **couple Phases 1 & 2** — e.g. use sparse CFD/experimental points + the NS residual to
-reconstruct a full flow field and infer parameters.
+**Possible extensions:** a **parametric** flow PINN `(x,y,α)→(u,v,p)` for interactive multi-angle
+visualization, or **couple Phases 1 & 2** — e.g. use sparse CFD/experimental points + the NS residual
+to reconstruct a full flow field and infer parameters.
 
 Foundations: see the PyTorch guide [`../../docs/pytorch_guide.md`](../../docs/pytorch_guide.md)
 (§5 autograd, §20 PINNs).
