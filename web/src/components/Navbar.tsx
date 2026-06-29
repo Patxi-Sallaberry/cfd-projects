@@ -1,6 +1,6 @@
 import { ArrowUpRight } from 'lucide-react'
 
-const LINKS = ['Approach', 'Models', 'Method', 'GitHub']
+const LINKS = ['Formula Student', 'Models', 'Method', 'GitHub']
 
 export default function Navbar() {
   return (
@@ -23,6 +23,7 @@ export default function Navbar() {
             key={l}
             href={l === 'GitHub'
               ? 'https://github.com/Patxi-Sallaberry/cfd-projects'
+              : l === 'Formula Student' ? '#fs'
               : `#${l.toLowerCase()}`}
             className="text-white/70 hover:text-white text-sm transition-colors"
           >
@@ -33,11 +34,11 @@ export default function Navbar() {
 
       {/* CTA pilule glass */}
       <a
-        href="#live"
+        href="#fs"
         className="liquid-glass rounded-xl px-4 sm:px-5 py-2 text-white/90 text-xs sm:text-sm font-light flex items-center gap-1.5"
         style={{ background: 'rgba(255,255,255,0.22)' }}
       >
-        Try the model
+        FS tool
         <ArrowUpRight size={14} />
       </a>
     </nav>

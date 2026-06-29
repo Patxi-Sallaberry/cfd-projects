@@ -1,9 +1,9 @@
 type Pt = { x: number; y: number }
 
-// Petit graphe SVG : une courbe (sweep en alpha) + le point courant.
+// Petit graphe SVG : une courbe (sweep en alpha) + le point courant (+ marqueur optimum).
 export default function PolarChart({
-  points, current, color = '#fff', title,
-}: { points: Pt[]; current: Pt; color?: string; title: string }) {
+  points, current, color = '#fff', title, markX,
+}: { points: Pt[]; current: Pt; color?: string; title: string; markX?: number }) {
   const W = 320, H = 180, pad = 30
   if (points.length === 0) return <div className="text-white/40 text-xs">…</div>
 
@@ -27,6 +27,10 @@ export default function PolarChart({
         )}
         <line x1={sx(current.x)} y1={pad} x2={sx(current.x)} y2={H - pad}
           stroke="rgba(255,255,255,0.14)" strokeDasharray="3 3" />
+        {markX !== undefined && (
+          <line x1={sx(markX)} y1={pad} x2={sx(markX)} y2={H - pad}
+            stroke="#4ade80" strokeWidth={1.4} strokeDasharray="2 2" />
+        )}
         <path d={d} fill="none" stroke={color} strokeWidth={1.6} />
         <circle cx={sx(current.x)} cy={sy(current.y)} r={4.5} fill={color} />
       </svg>

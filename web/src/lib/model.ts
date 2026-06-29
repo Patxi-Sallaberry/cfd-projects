@@ -38,3 +38,23 @@ export function predict1d(alpha: number) {
 export function predict2d(alpha: number, re: number) {
   return forward(DATA!.model2d, [alpha, Math.log10(re)])
 }
+
+// ---- Formula Student wing surrogate (NACA 4412, inverted -> downforce) ----
+export type FsModel = Model & {
+  re_range: [number, number]
+  v_range: [number, number]
+  physics: { chord: number; span: number; rho: number; mu: number }
+}
+let FS: FsModel | null = null
+
+export async function loadFsModel(): Promise<FsModel> {
+  if (FS) return FS
+  const res = await fetch(`${import.meta.env.BASE_URL}fs_wing_model.json`)
+  FS = (await res.json()) as FsModel
+  return FS
+}
+
+export function predictFs(alpha: number, re: number) {
+  return forward(FS!, [alpha, Math.log10(re)])
+}
+export function fsModel(): FsModel { return FS! }

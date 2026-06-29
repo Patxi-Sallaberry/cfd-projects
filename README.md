@@ -8,15 +8,16 @@ Aerodynamics meets machine learning. This repository gathers my self-driven work
 
 ---
 
-## 🚀 Live demo
-
-**A neural surrogate of the NACA 0012 polar, running in your browser:**
+## 🚀 Live demo — runs entirely in your browser
 
 ### → https://patxi-sallaberry.github.io/cfd-projects/
 
-Move the angle-of-attack (α) and Reynolds (Re) sliders and watch lift, drag and L/D update
-instantly — the airfoil tilts with α, and a PyTorch model (exported to JavaScript) runs the
-prediction **fully client-side**.
+- **🏎️ [Formula Student wing aero explorer](https://patxi-sallaberry.github.io/cfd-projects/#fs)** —
+  set a wing element's angle and the car speed → **downforce, drag and efficiency** instantly, plus the
+  optimal angle. A neural surrogate (NACA 4412 inverted) + a finite-wing induced-drag model, fully
+  client-side. *(A fast 2-D estimate for early design trade-offs — not a 3-D CFD.)*
+- **🛩️ NACA 0012 surrogate** — move the angle (α) and Reynolds (Re) sliders and watch lift/drag/L-D
+  update; the airfoil tilts with α. A PyTorch model exported to JavaScript.
 
 ---
 
@@ -28,7 +29,8 @@ cfd-projects/
 │   ├── phase0_post_processor/    ✅ CFD post-processor + Verification & Validation
 │   ├── phase1_surrogate/         ✅ neural surrogate  (α, Re) → (Cl, Cd)
 │   ├── phase2_pinns/             ◻  physics-informed neural networks (next)
-│   └── phase3_optimization/      ◻  shape optimization + dashboard
+│   ├── phase3_optimization/      ◻  shape optimization + dashboard
+│   └── fs_wing_surrogate/        🏎️ Formula Student wing aero explorer (live tool)
 ├── web/                        # the live demo site (Vite + React)
 ├── naca0012-airfoil-CFD/       # standalone CFD study — NACA 0012 airfoil
 ├── front-wing-CFD/             # standalone CFD study — Formula Student front wing

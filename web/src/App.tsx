@@ -1,6 +1,7 @@
 import FlowBackground from './components/FlowBackground'
 import Navbar from './components/Navbar'
 import Hero from './components/Hero'
+import FsAeroExplorer from './components/FsAeroExplorer'
 import LiveDemo from './components/LiveDemo'
 import Method from './components/Method'
 
@@ -12,6 +13,7 @@ export default function App() {
         <Navbar />
         <main className="flex-1">
           <Hero />
+          <FsAeroExplorer />
           <LiveDemo />
           <Method />
         </main>
