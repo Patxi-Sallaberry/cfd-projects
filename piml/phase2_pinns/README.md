@@ -100,8 +100,28 @@ loss = W_PHYS * loss_phys + loss_ic.squeeze()
 
 ---
 
+## 2.2 — Heat equation `u_t = α u_xx` (a true PDE) ✅
+
+First PDE: a diffusing field `u(x,t)` on x ∈ [0,1], with `u(x,0)=sin(πx)`, ends held at 0, α=0.4.
+Solved from physics + initial + boundary conditions, **with no data**. **R² = 0.999** vs the exact
+solution `sin(πx)·e^{-απ²t}`.
+
+![Heat PINN](results/figures/pinn_heat.png)
+
+The sine bump decays in amplitude over time — that's diffusion. Run: `python src/pinn_heat.py`
+
+**What's new vs the oscillator (2.1):**
+- **2 inputs `(x, t)`** → the network learns a *field*, and we take **partial derivatives**: `u_t`
+  (grad w.r.t. t) and `u_xx` (grad w.r.t. x, twice). `x` and `t` are kept as separate tensors so we
+  can differentiate w.r.t. each.
+- **Two kinds of constraint**: an **initial condition** (the t=0 profile) *and* **boundary
+  conditions** (the two ends), each its own weighted loss term (`W_IC`, `W_BC`).
+
+Otherwise the recipe is identical: minimize the residual `(u_t − α·u_xx)²` at collocation points.
+
+---
+
 ## Next steps
-- **2.2** — a true PDE: 1-D heat/diffusion equation `u_t = α u_xx` (2 inputs: x, t).
 - **2.3** — flow case (Burgers, then steady flow features) toward the NACA 0012 context.
 
 Foundations: see the PyTorch guide [`../../docs/pytorch_guide.md`](../../docs/pytorch_guide.md) (§5 autograd).
