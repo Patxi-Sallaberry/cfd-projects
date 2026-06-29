@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { loadModels, predict1d, predict2d } from '../lib/model'
 import PolarChart from './PolarChart'
+import AirfoilDiagram from './AirfoilDiagram'
 
 const RE_1D = 4e5
 const fmtRe = (re: number) => {
@@ -64,6 +65,15 @@ export default function LiveDemo() {
               {mO === '2d' ? 'Model 2D · (α, Re)' : 'Model 1D · α only'}
             </button>
           ))}
+        </div>
+
+        {/* Geometrie : le profil s'incline avec alpha */}
+        <div className="liquid-glass rounded-xl px-3 pt-3 pb-2 mb-6">
+          <AirfoilDiagram alpha={alpha} />
+          <p className="text-white/45 text-xs text-center mt-1 px-2">
+            NACA 0012 — a symmetric wing section. <span className="text-white/70">α</span> is its
+            tilt into the oncoming flow (move the slider to see it pitch).
+          </p>
         </div>
 
         {/* Sliders */}
