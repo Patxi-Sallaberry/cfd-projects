@@ -1,0 +1,5 @@
+# Dependances de la Phase 2 (PINNs).
+# NB : sur un pod RunPod "PyTorch", torch (build CUDA) est DEJA installe -> ne pas le reinstaller.
+#      On n'ajoute donc que ce qui manque. En local/CPU : `pip install torch numpy matplotlib`.
+numpy
+matplotlib

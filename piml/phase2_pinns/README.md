@@ -705,10 +705,10 @@ Three changes make the GPU actually pay off (naive `.to(device)` often doesn't):
 
 > **Honest hardware note.** This dev machine (WSL2) exposes only a **DirectX-12 GPU** (Intel/AMD), *not*
 > CUDA — and DirectML doesn't reliably support the **second-order autograd** a PINN needs (`ψ_xx`). So
-> here it still runs on CPU. The script is written so the *same file* trains on a real NVIDIA GPU (a lab
-> machine, or a free **Google Colab** GPU) where PINNs typically see a large speedup over CPU, and the
-> margin grows as the network / collocation count scale up. Run:
-> `python src/pinn_flow_airfoil_parametric_psi_gpu.py`
+> here it still runs on CPU. The script is written so the *same file* trains on a real NVIDIA GPU, where
+> PINNs see a large speedup over CPU (the margin grows as the network / collocation count scale up).
+> To actually run it on a rented NVIDIA GPU for a few cents, see **[`RUNPOD.md`](RUNPOD.md)** (a free
+> **Google Colab** GPU works too). Run: `python src/pinn_flow_airfoil_parametric_psi_gpu.py`
 
 ---
 
