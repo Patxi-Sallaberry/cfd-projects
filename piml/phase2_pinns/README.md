@@ -683,6 +683,33 @@ the PIML machinery (inverse problems, data assimilation, §2.2b/2.2c) that panel
 > *fail instructively*, and validation against the proper reference (a panel method) rather than a
 > convenient approximation. That is what turns a number into an engineering result.
 
+### Going faster — a GPU-ready training script
+Right after the panel-method validation, the training was ported to a **GPU-accelerated, device-agnostic
+model** (`src/pinn_flow_airfoil_parametric_psi_gpu.py`). The **physics is identical** to the ψ model
+above — same losses, same architecture, same `Cl(α)` — only the *execution* changes: it runs on a CUDA
+GPU when one is present, and falls back to CPU otherwise, **with no code change**:
+
+```python
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model  = nn.Sequential(...).to(DEVICE)
+```
+
+Three changes make the GPU actually pay off (naive `.to(device)` often doesn't):
+1. **All persistent tensors live on the device** (collocation, wall, far-field, trailing edge), created
+   once — *zero CPU↔GPU transfer inside the training loop*.
+2. **Angles are sampled directly on the device** with `torch.rand` instead of NumPy → no
+   `numpy → tensor → .to(device)` round-trip each epoch (which would force a host/GPU sync). Neat trick:
+   the normalized angle in [−1, 1] is just `torch.rand(n,1, device=DEVICE)*2 − 1`.
+3. **TF32 matmuls** enabled (Ampere+), and the loss is read with `.item()` (a sync) only every 2000
+   epochs.
+
+> **Honest hardware note.** This dev machine (WSL2) exposes only a **DirectX-12 GPU** (Intel/AMD), *not*
+> CUDA — and DirectML doesn't reliably support the **second-order autograd** a PINN needs (`ψ_xx`). So
+> here it still runs on CPU. The script is written so the *same file* trains on a real NVIDIA GPU (a lab
+> machine, or a free **Google Colab** GPU) where PINNs typically see a large speedup over CPU, and the
+> margin grows as the network / collocation count scale up. Run:
+> `python src/pinn_flow_airfoil_parametric_psi_gpu.py`
+
 ---
 
 ## Phase 2 — done ✅
