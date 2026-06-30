@@ -483,8 +483,8 @@ is well below FS Reynolds — illustrative of the viscous mechanism only.
 
 ### "Flow for any angle?" → a parametric PINN
 Each run above solves **one angle** (a PINN solves a single case per training). For an interactive
-multi-angle visualization, the next step is a **parametric** model `(x, y, α) → (u, v, p)` trained over
-a range of angles at once — a separate, heavier build.
+multi-angle visualization we train a **parametric** model `(x, y, α) → (u, v)` over a whole range of
+angles at once — see **§2.6** below.
 
 ### What's new in the code (vs 2.4)
 - **Real geometry:** the NACA 4412 contour is built analytically and rotated by the angle of attack;
@@ -496,14 +496,89 @@ a range of angles at once — a separate, heavier build.
 
 ---
 
+## 2.6 — A *parametric* PINN: one network for every angle of attack
+
+All previous PINNs solve **one case per training**. Here the goal is a single network
+`(x, y, α) → (u, v)` trained over a **whole range of angles** `α ∈ [−5°, 15°]` at once, so the flow at
+any angle is then a free forward pass — ideal for an interactive slider.
+
+### The key design choice: keep the wing fixed, rotate the free-stream
+If the wing rotated with α, the geometry, normals, collocation points and trailing edge would all move
+with α — expensive to regenerate. Instead we keep the **wing fixed** (at α = 0) and **rotate the
+incoming flow**: physically equivalent for inviscid flow (just a change of frame). The geometry is then
+built **once**; only the boundary conditions carry α:
+
+| | single-angle PINN (§2.5) | parametric PINN |
+|---|---|---|
+| geometry | wing rotated by α | **wing fixed** (α = 0) |
+| far-field | `(u,v) → (1, 0)` | `(u,v) → (cos α, sin α)` ← α enters here |
+| Kutta | `(u,v)=0` at the rotated TE | `(u,v)=0` at the fixed TE `(1, 0)` |
+| network input | `(x, y)` | `(x, y, α)` (α normalized to [−1, 1]) |
+
+### Attempt 1 — velocity formulation `(x,y,α)→(u,v)` ❌ (under-lifts)
+Reusing the §2.5 velocity form with α as a third input. It **converges** (every loss term small) but
+produces **~4× too little lift** — the streamlines barely deflect:
+
+![Parametric, velocity form](results/figures/pinn_flow_airfoil_parametric.png)
+
+The reason is physical: **lift comes from circulation Γ, a *global* quantity** (a contour integral
+around the wing), not a local one. A single Kutta point shared across all angles is a weak signal, and
+the velocity form only *permits* circulation, it does not *force* it. The network settles on the easy,
+near-zero-circulation optimum. Run: `python src/pinn_flow_airfoil_parametric.py`
+
+### Attempt 2 — stream-function formulation `(x,y,α)→ψ` ✅ (right physics)
+The network predicts a single scalar **ψ** (the stream function) and velocity derives from it:
+`u = ψ_y`, `v = −ψ_x`. This **builds in mass conservation** (`u_x+v_y=0` is exact) and lets us pin the
+body firmly as a streamline:
+
+| constraint | velocity form | **ψ form** |
+|---|---|---|
+| continuity `u_x+v_y=0` | a loss term (competes) | **exact** by construction |
+| wing surface | `u·n=0` (weak) | **ψ = 0 on the whole surface** (very firm) |
+| irrotational | `v_x−u_y=0` | `∇²ψ = 0` (Laplace) |
+
+The firm `ψ=0` body streamline lets the Kutta condition finally **bite** and select a real circulation.
+Crucially, the far-field imposes the **velocity** `(ψ_y, −ψ_x) → (cos α, sin α)`, *not* the value of ψ
+(clamping ψ would re-suppress circulation, since a vortex adds a `ln r` term).
+
+![Parametric, stream-function form](results/figures/pinn_flow_airfoil_parametric_psi.png)
+
+The streamlines now deflect with a clear **downwash** behind the wing, and a single network reproduces
+the **whole lift curve**: linear `Cl(α)`, with a zero-lift angle near −3° (cambered 4412, expected
+≈ −4°). Run: `python src/pinn_flow_airfoil_parametric_psi.py` (heavy — ~50 min, CPU).
+
+| α | Cl — velocity form | **Cl — ψ form** | Cl — thin-airfoil theory |
+|---|---|---|---|
+| 0° | 0.02 | **0.14** | 0.44 |
+| 10° | 0.32 | **0.64** | 1.54 |
+| 15° | 0.40 | **0.84** | 2.08 |
+
+### Honest takeaway — a documented limitation
+The ψ form **doubles** the lift and captures the **correct physics** (linear curve, right zero-lift
+angle, realistic flow), but still under-predicts the *magnitude* by ~2×. The remaining gap is the
+**Laplace residual** (`∇²ψ ≈ 2.6×10⁻²`, not negligible): a small distributed spurious vorticity acts
+like an opposite circulation and "leaks" some of the bound circulation, while Kutta stays satisfied
+locally. The **parametric** network spreads its capacity across 21 angles, so its per-angle residual is
+higher than a single-angle PINN's — hence more leakage. Pushing the residual down (denser collocation,
+higher Laplace weight, an L-BFGS polish) would close the gap further; getting to the exact theoretical
+circulation is a known accuracy limit of velocity/ψ-form potential PINNs.
+
+> **Why this section is worth keeping.** It's the real engineering loop: a first formulation that
+> *converges yet is wrong*, a diagnosis rooted in the physics (circulation is global), a principled fix
+> (stream function), and an honest accounting of what remains. Validating against theory is what made
+> the failure visible in the first place.
+
+---
+
 ## Phase 2 — done ✅
 
 ODE → linear PDE → inverse problem → extrapolation → non-linear PDE (shock) → **2-D Navier–Stokes** →
-**viscous flow around a real airfoil**. The full PINN toolbox is built and validated.
+**viscous flow around a real airfoil** → **parametric flow PINN** (one network for every angle). The
+full PINN toolbox is built and validated.
 
-**Possible extensions:** a **parametric** flow PINN `(x,y,α)→(u,v,p)` for interactive multi-angle
-visualization, or **couple Phases 1 & 2** — e.g. use sparse CFD/experimental points + the NS residual
-to reconstruct a full flow field and infer parameters.
+**Possible extensions:** push the parametric PINN's accuracy (denser collocation / L-BFGS polish to
+close the circulation gap), or **couple Phases 1 & 2** — e.g. use sparse CFD/experimental points + the
+NS residual to reconstruct a full flow field and infer parameters.
 
 Foundations: see the PyTorch guide [`../../docs/pytorch_guide.md`](../../docs/pytorch_guide.md)
 (§5 autograd, §20 PINNs).
