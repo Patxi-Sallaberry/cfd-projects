@@ -544,8 +544,8 @@ Crucially, the far-field imposes the **velocity** `(ψ_y, −ψ_x) → (cos α, 
 ![Parametric, stream-function form](results/figures/pinn_flow_airfoil_parametric_psi.png)
 
 The streamlines now deflect with a clear **downwash** behind the wing, and a single network reproduces
-the **whole lift curve**: linear `Cl(α)`, with a zero-lift angle near −3° (cambered 4412, expected
-≈ −4°). Run: `python src/pinn_flow_airfoil_parametric_psi.py` (heavy — ~50 min, CPU).
+the **whole lift curve**: linear `Cl(α)`, with a zero-lift angle near −3°/−4° (cambered 4412). Run:
+`python src/pinn_flow_airfoil_parametric_psi.py` (heavy — ~50 min, CPU).
 
 | α | Cl — velocity form | **Cl — ψ form** | Cl — thin-airfoil theory |
 |---|---|---|---|
@@ -553,32 +553,148 @@ the **whole lift curve**: linear `Cl(α)`, with a zero-lift angle near −3° (c
 | 10° | 0.32 | **0.64** | 1.54 |
 | 15° | 0.40 | **0.84** | 2.08 |
 
-### Honest takeaway — a documented limitation
-The ψ form **doubles** the lift and captures the **correct physics** (linear curve, right zero-lift
-angle, realistic flow), but still under-predicts the *magnitude* by ~2×. The remaining gap is the
-**Laplace residual** (`∇²ψ ≈ 2.6×10⁻²`, not negligible): a small distributed spurious vorticity acts
-like an opposite circulation and "leaks" some of the bound circulation, while Kutta stays satisfied
-locally. The **parametric** network spreads its capacity across 21 angles, so its per-angle residual is
-higher than a single-angle PINN's — hence more leakage. Pushing the residual down (denser collocation,
-higher Laplace weight, an L-BFGS polish) would close the gap further; getting to the exact theoretical
-circulation is a known accuracy limit of velocity/ψ-form potential PINNs.
+### Understanding the code step by step
+Only the parts that are **new** vs the §2.4/§2.5 flow PINNs are detailed (the MLP, autograd helper
+`grad`, Adam loop and pressure-integration of Cl are the same machinery as before).
 
-> **Why this section is worth keeping.** It's the real engineering loop: a first formulation that
-> *converges yet is wrong*, a diagnosis rooted in the physics (circulation is global), a principled fix
-> (stream function), and an honest accounting of what remains. Validating against theory is what made
-> the failure visible in the first place.
+**① The network IS the stream function** — three inputs, **one** scalar output ψ
+```python
+model = nn.Sequential(nn.Linear(3, 96), nn.Tanh(), ... , nn.Linear(96, 1))   # (x, y, α) → ψ
+```
+We output a single scalar ψ instead of two velocities. The velocity is *derived* from ψ by
+differentiation (step ⑤) — and that is precisely what makes mass conservation automatic. `tanh` again,
+because we take a **second** derivative of ψ (the Laplacian).
+
+**② The geometry is built once** (rotated-frame trick)
+```python
+poly    = naca4412()                 # the wing at α = 0 — FIXED for the whole training
+normals = outward_normals(poly)
+te      = np.array([[1.0, 0.0]])     # trailing edge — fixed
+```
+α never rotates the wing; it only appears in the boundary conditions (steps ⑥). So the contour,
+normals, trailing edge and collocation points are computed a **single** time, not per angle.
+
+**③ α as a third, normalized input**
+```python
+A_MID, A_HALF = 0.5*(ALPHA_MIN+ALPHA_MAX), 0.5*(ALPHA_MAX-ALPHA_MIN)
+def norm_alpha(a_deg): return (a_deg - A_MID) / A_HALF        # degrees → [−1, 1]
+```
+In radians α ≈ 0.2 — a `tanh` barely reacts to such a small input. Rescaling to [−1, 1] puts α on the
+same footing as the spatial coordinates so the network actually uses it.
+
+**④ Collocation points (where the PDE is imposed)**
+```python
+col = np.vstack([sample_fluid(3000, big_box),          # whole domain
+                 sample_fluid(2000, inner_box)])        # denser near the wing
+```
+Points are sampled in the fluid (those inside the airfoil are rejected with
+`matplotlib.path.Path.contains_points`), with a denser box around the wing where the flow varies most.
+
+**⑤ Velocity from ψ — the heart of the formulation**
+```python
+def velocity(x, y, a_norm):
+    psi = model(torch.cat([x, y, a_norm], 1))
+    u   =  grad(psi, y)        # u =  ∂ψ/∂y
+    v   = -grad(psi, x)        # v = −∂ψ/∂x
+    return u, v, psi
+```
+Defining velocity this way makes `u_x + v_y = ψ_yx − ψ_xy = 0` hold **identically** — continuity is free,
+no longer a competing loss term (the weakness of the velocity form in Attempt 1).
+
+**⑥ The four loss terms** — the physics, written literally
+```python
+u, v, _   = velocity(xc, yc, ac)
+loss_lap  = ((grad(v.mul(-1), xc) + grad(u, yc))**2).mean()   # ∇²ψ = ψ_xx + ψ_yy = 0  (irrotational)
+loss_body = (model(cat([surf, as_]))**2).mean()               # ψ = 0 on the wing (it is a streamline)
+uf, vf, _ = velocity(xf, yf, an_ff)
+loss_ff   = ((uf-cos α)**2 + (vf-sin α)**2).mean()            # far-field VELOCITY → (cos α, sin α)
+ut, vt, _ = velocity(xt, yt, an_te)
+loss_kutta= (ut**2 + vt**2).mean()                            # stagnation at the trailing edge
+loss = loss_lap + 20*loss_body + 10*loss_ff + 10*loss_kutta
+```
+- `loss_lap`: since `u = ψ_y` and `−v = ψ_x`, `grad(u, y)=ψ_yy` and `grad(−v, x)=ψ_xx` → their sum is the
+  Laplacian. Driving it to 0 enforces irrotational (hence potential) flow.
+- `loss_body`: the **value** of ψ pinned to 0 — a single firm streamline along the whole surface.
+- `loss_ff`: we constrain the **velocity**, *never* the value of ψ — clamping ψ would forbid the `ln r`
+  term a circulation produces, re-suppressing lift. (Same spirit as leaving the outlet free in §2.5.)
+- `loss_kutta`: the finite-angle 4412 trailing edge is a true stagnation point, so `(u,v)=0` there is
+  what selects the physical circulation.
+
+**⑦ One random angle per point, redrawn each epoch** — this is what makes it *parametric*
+```python
+def rand_alpha_norm(n):
+    a = np.random.uniform(ALPHA_MIN, ALPHA_MAX, (n,1)).astype(np.float32)
+    return torch.tensor(a), torch.tensor(norm_alpha(a))
+```
+Every epoch, the collocation and boundary points are each assigned a **fresh random α** across the
+range. Over training the network sees the whole continuum of angles — not a fixed list — so a single
+model interpolates the flow for *any* α afterwards.
+
+**⑧ Validation — Cl(α) by integrating surface pressure** (the V&V reflex)
+```python
+cp = 1 - (u**2 + v**2)                        # Bernoulli (free-stream speed = 1)
+fx = -Σ cp·n_x·ds ;  fy = -Σ cp·n_y·ds        # pressure force on the surface
+Cl = -fx·sin α + fy·cos α                      # projected perpendicular to the inflow (cos α, sin α)
+```
+Because the frame is rotated, lift is perpendicular to the incoming flow — hence the projection with α.
+We sweep α and compare the resulting curve to thin-airfoil theory `Cl = 2π(α − α₀)`.
+
+### Validating against the right reference — a vortex-panel method
+Thin-airfoil theory is only an approximation, so for a trustworthy verdict we compare the PINN to the
+**classical tool for inviscid 2-D lift: a vortex-panel method** (Kuethe–Chow). It discretizes the
+surface into panels carrying a vortex distribution and enforces flow-tangency + the Kutta condition — a
+small linear system solved in **milliseconds**, accurate to ~XFOIL-inviscid level. See
+`src/panel_method.py`; the comparison figure is produced by `python src/vv_cl_comparison.py`.
+
+![Cl(α): PINN vs panel method vs theory](results/figures/vv_cl_comparison.png)
+
+The panel method is its own cross-check: lift from **pressure integration** and from **total circulation**
+(Kutta–Joukowski) agree to 3 digits, with slope `dCl/dα ≈ 0.119/°` and zero-lift angle `α₀ ≈ −4.4°`
+(textbook NACA 4412 values). Against it:
+
+| α | thin-airfoil theory | **panel method (reference)** | PINN ψ |
+|---|---|---|---|
+| 0° | 0.44 | **0.52** | 0.14 |
+| 10° | 1.54 | **1.71** | 0.64 |
+| 15° | 2.08 | **2.29** | 0.84 |
+
+### Honest takeaway — a documented limitation, and the right tool for the job
+The PINN reproduces the **correct qualitative physics** (linear `Cl(α)`, a zero-lift angle near −4°,
+realistic streamlines with downwash) but **under-predicts the lift slope** — it reaches ~40 % of the
+true inviscid magnitude. The cause is the **Laplace/irrotationality residual**: a small distributed
+spurious vorticity acts like an opposite circulation and "leaks" part of the bound circulation, and the
+parametric network spreads its capacity across the whole angle range, raising that residual.
+
+Three improvement attempts are worth recording because they each taught something:
+- a **collocation ring + L-BFGS polish** — *under-trained base + L-BFGS over-fitting a frozen
+  α-per-point batch actually **inverted** the lift slope*;
+- a **vortex decomposition** `ψ = freestream + Γ(α)·vortex + ψ_NN` to hard-code circulation — *the
+  network left `Γ ≈ 0` and did the work itself: re-parametrizing ψ does **not** change the constrained
+  optimum*.
+
+None beat the plain ψ model. The honest conclusion is the **mature** one: for *exact* inviscid lift the
+right instrument is a **panel method** (milliseconds, near-exact), not a PINN. The PINN's value is
+elsewhere — a single mesh-free network that gives the *whole-field* flow for *any* angle, and, above all,
+the PIML machinery (inverse problems, data assimilation, §2.2b/2.2c) that panel methods cannot do.
+**Knowing which tool fits which job is the point.**
+
+> **Why this section is worth keeping.** It's the real engineering loop: a formulation that *converges
+> yet is wrong*, a physics-based diagnosis (circulation is global), several principled fixes that
+> *fail instructively*, and validation against the proper reference (a panel method) rather than a
+> convenient approximation. That is what turns a number into an engineering result.
 
 ---
 
 ## Phase 2 — done ✅
 
 ODE → linear PDE → inverse problem → extrapolation → non-linear PDE (shock) → **2-D Navier–Stokes** →
-**viscous flow around a real airfoil** → **parametric flow PINN** (one network for every angle). The
-full PINN toolbox is built and validated.
+**viscous flow around a real airfoil** → **parametric flow PINN** (one network for every angle),
+**cross-checked against a classical panel method**. The full PINN toolbox is built and validated — and
+benchmarked against the right reference.
 
-**Possible extensions:** push the parametric PINN's accuracy (denser collocation / L-BFGS polish to
-close the circulation gap), or **couple Phases 1 & 2** — e.g. use sparse CFD/experimental points + the
-NS residual to reconstruct a full flow field and infer parameters.
+**Possible extensions:** **couple Phases 1 & 2** — use sparse CFD/experimental points + the NS residual
+to reconstruct a full flow field and infer parameters (the inverse-problem use case where PINNs, unlike
+panel methods, genuinely shine).
 
 Foundations: see the PyTorch guide [`../../docs/pytorch_guide.md`](../../docs/pytorch_guide.md)
 (§5 autograd, §20 PINNs).
