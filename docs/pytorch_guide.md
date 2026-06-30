@@ -914,6 +914,20 @@ Astuce : imposer une variable au **bord** (ex. la pression) **fixe sa constante*
 la détermine qu'à une constante près. Exemple complet : `piml/phase2_pinns/src/pinn_navier_stokes.py`
 (écoulement de Kovasznay, validé contre la solution exacte de Navier-Stokes).
 
+### 20.11 Limite : haut Reynolds et couche limite
+
+Un PINN (comme tout maillage) **ne résout pas** les couches limites ultra-fines à **haut Reynolds**
+(épaisseur ∝ 1/√Re) — un écoulement NS visqueux ne converge pas à Re ≳ quelques milliers autour d'un
+corps. Deux options honnêtes pour un écoulement à Re élevé (ex. aile rapide) :
+- résoudre le **modèle inviscide** (à haut Re l'écoulement *visible* est inviscide, indépendant du Re),
+  en formulation **vitesse** `(u,v)` pour rester single-valued : continuité `u_x+v_y=0`,
+  irrotationnalité `v_x−u_y=0`, non-pénétration au mur, et **Kutta** (point d'arrêt au bord de fuite)
+  pour la circulation/portance ;
+- ou rester à **Re modéré** (visqueux) en assumant que c'est illustratif.
+
+Exemples : `piml/phase2_pinns/src/pinn_flow_airfoil_inviscid.py` (haut-Re inviscide) et
+`pinn_flow_airfoil.py` (bas-Re visqueux).
+
 ### Pièges spécifiques aux PINNs
 
 | Symptôme | Cause |

@@ -442,41 +442,57 @@ pressure is only defined up to an additive constant).
 
 ---
 
-## 2.5 — Viscous flow around a real airfoil (NACA 4412) ✅
+## 2.5 — Flow around a real airfoil (NACA 4412)
 
-Case 2.4 solved Navier–Stokes in a simple box. Here the **same equations** are solved around an actual
-**NACA 4412** geometry (the Formula Student wing profile) at α = 10°, with **no-slip on the airfoil
-surface** and a uniform free-stream far away.
+Extending 2.4 from a simple box to an actual **NACA 4412** wing geometry (the Formula Student
+profile), at α = 10°. This requires one key insight:
 
-![Flow around the airfoil](results/figures/pinn_flow_airfoil.png)
+> **Boundary-layer theory.** A wing's flow has **two regions**: a razor-thin **viscous boundary
+> layer** glued to the surface (thickness ∝ 1/√Re), and an **inviscid outer flow** everywhere else.
+> At Formula-Student speed (**Re ≈ 10⁵–2·10⁵**) that boundary layer is *microscopic* — the streamlines
+> you actually *see* are the **inviscid** outer flow. No PINN (and no mesh) can resolve such a thin
+> layer at high Re, so we solve the **right model for each regime**.
 
-The PINN recovers a physically credible flow: the stream divides at the leading-edge stagnation point,
-accelerates over the suction side, and is **deflected downward behind the wing** (downwash — the
-signature of lift), with a wake. No-slip is enforced to ~3·10⁻⁵.
+### High-Re (Formula Student) — inviscid flow ✅
 
-### Honesty / scope
-- Solved at a **moderate, laminar Reynolds number (Re = 100)** so the PINN converges — an
-  **illustrative** viscous flow, **not** the real FS Reynolds (~10⁵, turbulent), which needs a
-  classical CFD solver (see [`../../front-wing-CFD`](../../front-wing-CFD)). The momentum residual
-  settles around 8·10⁻³ (approximate, not exact).
-- It is **one solved case (one angle)**: a PINN solves a single boundary-value problem per training.
+The credible model at racing speed. In velocity form (single-valued, robust) we solve:
+`continuity u_x+v_y=0`, `irrotationality v_x−u_y=0`, **no-penetration** on the surface, free-stream far
+away, and the **Kutta condition** (stagnation at the trailing edge) to set the circulation/lift. The
+inviscid field is **Reynolds-independent** → valid at Re = 2·10⁵ and beyond.
+
+![Inviscid flow](results/figures/pinn_flow_airfoil_inviscid.png)
+
+A credible lifting flow: a strong **suction peak (low Cp) on the suction side**, higher pressure below,
+and lift coefficient **Cl ≈ 1.1** (computed by integrating the surface pressure — vs ~1.5 from
+thin-airfoil theory; the PINN slightly under-predicts the circulation). Run:
+`python src/pinn_flow_airfoil_inviscid.py` (~9 min).
+
+> **Honesty.** This is the inviscid *outer* flow — it has **no boundary layer and no viscous drag**.
+> For those (and the true turbulent Re), you need classical CFD (see
+> [`../../front-wing-CFD`](../../front-wing-CFD)). Knowing *which model is valid where* is the point.
+
+### Low-Re — viscous Navier–Stokes (illustrative) ✅
+
+At a moderate, laminar **Re = 100** the full viscous NS PINN converges and shows what the inviscid
+model omits — the **viscous wake** behind the wing. No-slip (`u=v=0`) is imposed on the surface.
+
+![Viscous flow](results/figures/pinn_flow_airfoil.png)
+
+Run: `python src/pinn_flow_airfoil.py` (heavy — ~20 min). Momentum residual ~8·10⁻³ (approximate); this
+is well below FS Reynolds — illustrative of the viscous mechanism only.
 
 ### "Flow for any angle?" → a parametric PINN
-To get the flow for *any* angle interactively, the next step is a **parametric** model with the angle
-as an extra input — `(x, y, α) → (u, v, p)` — trained over a range of angles at once, so a slider could
-update the whole field instantly (the Phase 1 surrogate idea, but for the field). That is a separate,
-heavier build.
+Each run above solves **one angle** (a PINN solves a single case per training). For an interactive
+multi-angle visualization, the next step is a **parametric** model `(x, y, α) → (u, v, p)` trained over
+a range of angles at once — a separate, heavier build.
 
 ### What's new in the code (vs 2.4)
 - **Real geometry:** the NACA 4412 contour is built analytically and rotated by the angle of attack;
-  collocation points are sampled in the box and those **inside the airfoil are rejected**
-  (`matplotlib.path.Path.contains_points`).
-- **No-slip wall:** on the airfoil-surface points we impose `u = v = 0` (`loss_wall`).
-- **Free-stream / outlet:** `u = 1, v = 0` on inlet/top/bottom, `p = 0` at the outlet (fixes the
-  pressure constant).
-- The three Navier–Stokes residuals and the autograd machinery are exactly those of 2.4.
-
-Run: `python src/pinn_flow_airfoil.py` (heavy — ~20 min on CPU).
+  collocation points inside the airfoil are rejected (`matplotlib.path.Path.contains_points`).
+- **Surface boundary:** no-slip (`u=v=0`, viscous) or no-penetration (`u·n=0`, inviscid) on the airfoil
+  points, with outward normals computed from the contour.
+- **Free-stream** on inlet/top/bottom, **open outlet** (leaving it free lets the lifting downwash pass
+  → correct circulation), and the **Kutta** condition for the inviscid case.
 
 ---
 
