@@ -90,6 +90,36 @@ PINN advantage over a black-box regressor.
 | tip deflection (dimensional) | **≈ 4.5 cm** | `q0 L⁴/(8EI)` |
 | root bending moment | **≈ 15 kN·m** | `q0 L²/2` |
 
+## 🔬 Experiment log — what changing the load teaches
+A hands-on test run on CPU: **double the lift** (`Q0` from 1200 → 2400 N/m in `beam_pinn.py`) and re-run.
+
+| quantity | `Q0 = 1200` | `Q0 = 2400` | ratio |
+|---|---|---|---|
+| tip deflection | 4.5 cm | **9.0 cm** | ×2 |
+| root bending moment | 15 kN·m | **30 kN·m** | ×2 |
+| non-dimensional `W(ξ)` shape, R² | identical, 1.0000 | **identical, 1.0000** | ×1 |
+
+**Takeaway — linearity + why non-dimensionalization is powerful.** The beam equation `EI·w'''' = q` is
+*linear* (like a spring `F = kx`): double the load → double the response. And because we solved the
+**non-dimensional** problem `W''''(ξ) = 1` — which contains *no load and no stiffness* — the network
+learns **one universal shape** `W(ξ)`; the physical deflection is just a **post-hoc rescaling**
+`w = W · (q0 L⁴/EI)`. So doubling `Q0` doubles the physical numbers while the *trained network is
+unchanged*. Non-dimensionalization cleanly separates **what the net learns (shape)** from **what is only
+a scale factor (amplitude)** — verified here experimentally.
+
+## ▶️ Run it yourself (CPU, ~1 min)
+```bash
+cd ~/projects/cfd-projects          # repo root
+source .venv/bin/activate           # activate the Python environment  →  prompt shows (.venv)
+python piml/applied_pinns/wing_spar_deflection/src/beam_pinn.py
+```
+The console prints the training loss, `R² = 1.00000`, the tip deflection and root moment. View the figure:
+```bash
+cd piml/applied_pinns/wing_spar_deflection/results && explorer.exe .   # (WSL → opens Windows Explorer)
+```
+To experiment, edit `Q0` (or `L_SPAN`, `I_SEC`) in `src/beam_pinn.py` and re-run. To restore the
+reference: `git checkout -- src/beam_pinn.py results/beam_pinn.png`.
+
 ## Files
 - `src/beam_pinn.py` — the model (heavily commented, French), validation, and figure.
 - `results/beam_pinn.png` — the output figure.

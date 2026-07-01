@@ -49,6 +49,11 @@ loss = w_pde * mean(residual(u, u_x, u_xx, ...)²)      # PDE, on collocation po
 ## 4. Formulation choices that matter (hard-won)
 - **Normalize inputs/outputs** to ~O(1). *This repo (§2.6):* feeding α in radians (~0.2) made `tanh`
   barely react; rescaling α to [−1, 1] fixed it. Same for spatial coords and target magnitudes.
+- **Non-dimensionalization can make the *trained problem* parameter-independent** — a stronger win than
+  mere scaling. *This repo (applied_pinns/wing_spar):* the beam `EI·w''''=q` becomes `W''''(ξ)=1`, which
+  holds **no load and no stiffness**; the network learns one universal shape and physical values are a
+  post-hoc rescaling `w = W·(q0L⁴/EI)`. Doubling the load doubles the deflection with the *same* network
+  (verified experimentally). Separate what the net must *learn* (shape) from what is only a *scale factor*.
 - **Choose the dependent variable to bake in a constraint.** *This repo:* switching from velocity
   `(u,v)` to a **stream function ψ** (`u=ψ_y, v=−ψ_x`) makes continuity `u_x+v_y=0` *exact* and lets you
   pin the body as a streamline — it doubled the recovered lift. (cf. NSFnets, Jin et al. 2021, which
