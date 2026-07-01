@@ -724,4 +724,6 @@ to reconstruct a full flow field and infer parameters (the inverse-problem use c
 panel methods, genuinely shine).
 
 Foundations: see the PyTorch guide [`../../docs/pytorch_guide.md`](../../docs/pytorch_guide.md)
-(§5 autograd, §20 PINNs).
+(§5 autograd, §20 PINNs). Literature & best practices: the **knowledge base** in
+[`../references/`](../references/) — annotated [bibliography](../references/bibliography.md) and a
+practical [PINN playbook](../references/pinn_playbook.md) (failure modes → fixes).

@@ -78,10 +78,24 @@ Formula: `Cl = L / (0.5 * rho * V² * A)` where A = chord × span
 | 2     | Dec 2026–Mar 2027  | + DeepXDE (PINNs)          |
 | 3     | Apr 2027–Jun 2028  | + FastAPI, Next.js          |
 
+## PINN / Scientific-ML knowledge base
+
+A curated, **verified** reference corpus on PINNs and physics-applied ML lives in
+[`piml/references/`](piml/references/) — read it before answering PINN/SciML questions or writing PINN
+code, and cite from it rather than from memory:
+- [`piml/references/bibliography.md`](piml/references/bibliography.md) — annotated, grouped citations.
+- [`piml/references/pinn_playbook.md`](piml/references/pinn_playbook.md) — practical methods + a
+  **failure-mode → fix** table, grounded in the Phase-2 experiments.
+
+When a Phase-2/3 experiment yields a new lesson, extend `pinn_playbook.md`. Never invent a citation —
+verify (web search or a source in the repo) before adding one.
+
 ## Claude Code Usage Notes
 
-- Always activate venv before running Python: `source piml/phase0_post_processor/.venv/bin/activate`
+- Activate the venv before running Python: `source .venv/bin/activate` (repo-root `.venv`; the older
+  `piml/phase0_post_processor/.venv` path is stale). Background runs need **absolute** paths.
 - Root access available (`root@Patxi`) — no sudo needed
 - Do not touch `~/websites/` directory (separate web agency project)
 - Prefer modular `src/` functions over monolithic notebooks
 - When generating plots, always include axis labels, legend, and title
+- Heavy PINN runs → launch in the **background** with `python -u` (unbuffered logs)
