@@ -43,6 +43,7 @@ loss = w_pde * mean(residual(u, u_x, u_xx, ...)²)      # PDE, on collocation po
 | Stalls at a mediocre residual | Adam plateaus (1st-order) | **polish with L-BFGS** (2nd-order) after Adam — the standard two-stage recipe (Liu & Nocedal 1989). *Caveat (this repo):* L-BFGS needs a **deterministic** loss — freeze the batch, or it over-fits & can break generalization |
 | Under-resolved where the solution varies | uniform collocation too sparse there | **residual-based adaptive refinement (RAR)** — add points where the residual is large (Lu et al. 2021, DeepXDE) |
 | BCs only approximately satisfied | soft penalty too weak | **hard constraints**: bake the BC into an ansatz `u = g(x) + B(x)·NN(x)` so it holds exactly (Lagaris et al. 1998) |
+| Deep net won't train / vanishing-exploding gradients | plain deep MLP is hard to optimize | **ResNet skip connections** (and normalization); e.g. Res-PINN for ROM (Liu et al. 2025) |
 | Huge domain / multiscale, one net can't cope | limited capacity per region | **domain decomposition**: XPINN / cPINN (Jagtap et al. 2020), hp-VPINN (Kharazmi et al. 2021) |
 
 ## 4. Formulation choices that matter (hard-won)

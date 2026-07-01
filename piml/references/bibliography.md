@@ -63,6 +63,11 @@ Complex Systems"** (BML Munjal University) and cross-checked against the primary
 - **Pang, Lu, Karniadakis (2019)** — *fPINNs* (fractional PDEs). SIAM J. Sci. Comput. 41(4).
 - **Yang, Zhang, Karniadakis (2020)** — *PI-GANs* (stochastic PDEs / UQ). SIAM J. Sci. Comput. 42(1).
 - **Gladstone, Nabian, Meidani (2022)** — *FO-PINNs* (first-order formulation → lower-order autograd). arXiv:2210.14320.
+- **Liu, Hou, Wei, Jin, Zhang (2025)** — *Research and Application of ROM Based on Res-PINNs Neural
+  Network in Fluid System.* **Symmetry 17(2), 163**, DOI 10.3390/sym17020163. → adds a **ResNet** (skip
+  connections) module + a symmetric parallel structure to the PINN to fight **vanishing/exploding
+  gradients** and stabilize training, as a **reduced-order model (ROM)**; validated on **flow past a
+  cylinder** and **vortex-induced vibration (VIV)**. Aerospace-affiliated (China Aerospace Academy).
 
 ## Convergence & error theory
 - **Shin, Darbon, Karniadakis (2020)** — convergence for linear 2nd-order elliptic/parabolic PDEs. arXiv:2004.01806.
