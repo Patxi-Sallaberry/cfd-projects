@@ -27,6 +27,13 @@ Complex Systems"** (BML Munjal University) and cross-checked against the primary
   J. Sci. Comput. 92(3):88. → broad, practical, well-organized survey.
 - **Cai, Mao, Wang, Yin, Karniadakis (2021)** — *PINNs for fluid mechanics: a review.* Acta Mech. Sinica
   37(12):1727–1738. → CFD-focused (most relevant to this repo). arXiv:2105.09506.
+- **Gryt & Przystałka (2026)** — *Physics-Informed Neural Networks in Aerospace Engineering: A Systematic
+  Review of Architectures, Training Strategies, and Open Challenges.* **Applied Sciences 16(13), 6282**,
+  DOI 10.3390/app16136282. → **PRISMA** systematic review of PINNs across **aerospace** (aerodynamics,
+  structures, aeroelasticity, propulsion, control, SHM, orbit/space-debris). Covers XPINN/cPINN/gPINN,
+  operator learning, **hybrid PINN-CFD/FEM**, adaptive sampling, domain decomposition, transfer learning,
+  dynamic loss weighting; and open challenges (scalability, loss-weight sensitivity, noise robustness,
+  cost, lack of standard aerospace benchmarks). **Most on-target review for Patxi's career domain.**
 - **Ganga & Uddin (2024)** — *Exploring PINNs: from fundamentals to applications in complex systems.*
   → the anchor review; strong on modifications, optimization, theory, CFD applications, open gaps.
 - **Faroughi et al. (2024)** — physics-guided / -informed / -encoded NNs & operators. JCISE 24(4):040802.

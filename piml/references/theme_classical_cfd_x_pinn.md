@@ -7,7 +7,8 @@ fold it into the PINN's **loss, sampling, or architecture**. A classical numeric
 better loss term (or a better-conditioned formulation) than a plain PDE residual.
 
 All references below are detailed in [`bibliography.md`](bibliography.md); the mechanics are in
-[`pinn_playbook.md`](pinn_playbook.md).
+[`pinn_playbook.md`](pinn_playbook.md). For a survey that explicitly reviews **hybrid PINN-CFD/FEM**
+formulations in an aerospace context, see **Gryt & Przystałka (2026)**, *Appl. Sci.* 16(13):6282.
 
 ## The map: classical idea → its PINN counterpart
 | Classical CFD / numerics idea | PINN counterpart | Reference |
