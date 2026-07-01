@@ -61,6 +61,11 @@ loss = w_pde * mean(residual(u, u_x, u_xx, ...)²)      # PDE, on collocation po
   Gladstone et al. 2022).
 - **Weighting is a real knob**, not a detail: start terms at comparable magnitudes; if one residual is
   ~10³× another, its square dominates and the rest is ignored.
+- **Borrow a classical scheme into the loss.** Incompressible NS is stiff because of velocity–pressure
+  coupling; classical CFD handles it with **SIMPLE**-type pressure-correction. **SIMPLE-PINN** (Wei et
+  al. 2026) derives a velocity–pressure *coupling correction loss* from that algorithm → precise
+  data-free flow (lid-driven cavity). General lesson: a decades-old numerical idea can become a better
+  loss term than a naïve residual.
 
 ## 5. Validation & verification (non-negotiable)
 - A low loss **does not** guarantee the right answer (trivial solutions exist). **Always validate**

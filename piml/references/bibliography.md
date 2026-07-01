@@ -84,6 +84,12 @@ Complex Systems"** (BML Munjal University) and cross-checked against the primary
   flow; folds **spectral analysis** + a **pressure-correction module** into the Navier–Stokes residual to
   sharpen predictions at gas-phase boundaries and velocity peaks (error ~1‰ vs plain PINN, inference
   <0.01 s). Ties to the **spectral-bias** remedy (Fourier features) — see the playbook.
+- **Wei, Fan, Ooi, Wong, Wang, Chiu (2026)** — *Bridging CFD Algorithm and Physics-Informed Learning:
+  SIMPLE-PINN for Incompressible Navier–Stokes Equations.* **arXiv:2603.24013.** → embeds the classical
+  **SIMPLE** pressure–velocity-coupling algorithm (the pressure-correction scheme at the heart of most
+  incompressible CFD solvers) into the PINN loss: a derived **velocity–pressure coupling correction
+  loss** enables precise **data-free** simulation (validated on lid-driven cavity). A clean example of
+  *bridging a classical numerical method with a PINN* — see the playbook (formulation choices).
 
 ## Software / libraries
 - **DeepXDE** (Python; Lu et al. 2021) — the standard PINN library (this repo's Phase-2 roadmap targets it).
