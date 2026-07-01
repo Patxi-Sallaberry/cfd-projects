@@ -14,6 +14,7 @@ All references below are detailed in [`bibliography.md`](bibliography.md); the m
 |---|---|---|
 | **SIMPLE** pressure–velocity coupling (pressure correction) | a derived *coupling-correction* loss term | **SIMPLE-PINN** — Wei et al. (2026), arXiv:2603.24013 |
 | **Spectral methods** + pressure correction | spectral analysis in the loss for sharp interfaces | **SP-PINN** — Ding et al. (2025), Appl. Math. Mech. 46(2) |
+| **Finite-volume (FVM) convection discretization** (stencils use neighbors) | a stencil/residual-correction loss beyond pointwise autodiff | **FFV-PINN** — Wei et al. (2026), arXiv:2603.24114 |
 | **Finite-volume conservation** on cells | conservative residual on subdomains | **cPINN** — Jagtap et al. (2020) |
 | **Domain decomposition** (Schwarz, etc.) | space/space-time subdomains stitched with interface losses | **XPINN** — Jagtap & Karniadakis (2020) |
 | **FEM / spectral-element** weak (variational) form | integrate the residual against test functions | **VPINN / hp-VPINN** — Kharazmi et al. (2019, 2021) |

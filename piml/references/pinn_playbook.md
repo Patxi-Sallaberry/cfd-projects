@@ -64,8 +64,11 @@ loss = w_pde * mean(residual(u, u_x, u_xx, ...)²)      # PDE, on collocation po
 - **Borrow a classical scheme into the loss.** Incompressible NS is stiff because of velocity–pressure
   coupling; classical CFD handles it with **SIMPLE**-type pressure-correction. **SIMPLE-PINN** (Wei et
   al. 2026) derives a velocity–pressure *coupling correction loss* from that algorithm → precise
-  data-free flow (lid-driven cavity). General lesson: a decades-old numerical idea can become a better
-  loss term than a naïve residual.
+  data-free flow (lid-driven cavity). Relatedly, **FFV-PINN** (Wei et al. 2026) notes that pointwise
+  autodiff **ignores neighboring points**, and injects a **finite-volume** discretization of the
+  (unstable) **convection term** + a residual correction for better dispersion/dissipation and stability.
+  General lesson: a decades-old numerical idea (pressure correction, FVM stencils, upwinding) can become
+  a better loss term than a naïve pointwise residual. See [`theme_classical_cfd_x_pinn.md`](theme_classical_cfd_x_pinn.md).
 
 ## 5. Validation & verification (non-negotiable)
 - A low loss **does not** guarantee the right answer (trivial solutions exist). **Always validate**

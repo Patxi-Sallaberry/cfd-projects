@@ -90,6 +90,12 @@ Complex Systems"** (BML Munjal University) and cross-checked against the primary
   incompressible CFD solvers) into the PINN loss: a derived **velocity–pressure coupling correction
   loss** enables precise **data-free** simulation (validated on lid-driven cavity). A clean example of
   *bridging a classical numerical method with a PINN* — see the playbook (formulation choices).
+- **Wei, Fan, Wong, Ooi, Wang, Chiu (2026)** — *FFV-PINN: A Fast Physics-Informed Neural Network with
+  Simplified Finite Volume Discretization and Residual Correction.* **arXiv:2603.24114.** → tackles a
+  core PINN weakness — pointwise autodiff **ignores neighboring points**. FFV-PINN uses a **simplified
+  finite-volume (FVM)** discretization of the **convection term** (a main instability source) plus a
+  **residual-correction** loss → better dispersion/dissipation, more stable training for complex flows.
+  Same group as SIMPLE-PINN; see the "classical CFD × PINN" theme note.
 
 ## Software / libraries
 - **DeepXDE** (Python; Lu et al. 2021) — the standard PINN library (this repo's Phase-2 roadmap targets it).
