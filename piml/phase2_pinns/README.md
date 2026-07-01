@@ -1,5 +1,5 @@
 # Phase 2 — Physics-Informed Neural Networks (PINNs)
-*In progress · Dec 2026 – Mar 2027 (LiU)*
+*Complete ✅ · planned window Dec 2026 – Mar 2027 (LiU)*
 
 **The idea.** Instead of learning from data (Phase 1), a PINN learns from the **physics itself**: the
 governing equation is put **into the loss**. We differentiate the network's *output* w.r.t. its

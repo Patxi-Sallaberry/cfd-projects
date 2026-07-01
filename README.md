@@ -47,7 +47,7 @@ cfd-projects/
 |---|---|---|
 | **0** | CFD post-processor + Verification & Validation | ✅ done |
 | **1** | Surrogate model (α, Re) → (Cl, Cd) — PyTorch, runs in the browser | ✅ done |
-| **2** | Physics-Informed Neural Networks (PINNs) — up to 2-D Navier–Stokes | ✅ done |
+| **2** | Physics-Informed NNs — ODE → PDEs → inverse → 2-D Navier–Stokes → airfoil → parametric PINN (validated vs a panel method) | ✅ done |
 | **3** | Shape optimization + dashboard | ◻ planned |
 
 → Start here: [`piml/`](./piml)
