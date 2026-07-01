@@ -78,6 +78,12 @@ Complex Systems"** (BML Munjal University) and cross-checked against the primary
 - **Sun, Gao, Pan, Wang (2020)** — surrogate flow modeling with physics constraints, **no simulation data.** CMAME 361.
 - **Raissi, Yazdani, Karniadakis (2020)** — *Hidden Fluid Mechanics.* Science 367(6481). → reconstruct
   velocity & pressure fields from flow-visualization data (data assimilation — PINNs' real edge).
+- **Ding, Feng, Lou, Fu, Li, Zhang, Ma, Zhang (2025)** — *Prediction of velocity and pressure of
+  gas-liquid flow using spectrum-based physics-informed neural networks (SP-PINN).* **Applied Mathematics
+  and Mechanics (English Ed.) 46(2), 341–356**, DOI 10.1007/s10483-025-3217-8. → **two-phase (gas-liquid)**
+  flow; folds **spectral analysis** + a **pressure-correction module** into the Navier–Stokes residual to
+  sharpen predictions at gas-phase boundaries and velocity peaks (error ~1‰ vs plain PINN, inference
+  <0.01 s). Ties to the **spectral-bias** remedy (Fourier features) — see the playbook.
 
 ## Software / libraries
 - **DeepXDE** (Python; Lu et al. 2021) — the standard PINN library (this repo's Phase-2 roadmap targets it).

@@ -90,6 +90,10 @@ initial condition), learn the **solution operator**:
   remains open research.
 - Good CFD entry points: **NSFnets** (Jin et al. 2021), heat transfer (Cai et al. 2021), data-driven
   reconstruction (Raissi et al. 2020).
+- **Multiphase / two-phase flow**: sharp gas–liquid interfaces stress the MLP's spectral bias. A
+  **spectrum-based PINN (SP-PINN)** with a pressure-correction module (Ding et al. 2025) targets exactly
+  the interface/velocity-peak regions — a concrete pairing of the spectral-bias fix (row 2 above) with
+  a physics-based correction.
 
 ---
 *Maintenance:* when a Phase-2/3 experiment teaches a new lesson, add a row/bullet here and cross-link the
