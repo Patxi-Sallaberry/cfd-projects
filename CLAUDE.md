@@ -13,32 +13,29 @@ Configuration file for Claude Code. Provides project context, conventions, and g
 
 ```
 cfd-projects/
-├── naca0012/              # First CFD project (ANSYS Fluent, June 2026)
-│   ├── geometry/          # STEP files, Fusion 360 exports
-│   ├── results/           # Cl/Cd tables, screenshots
-│   └── README.md
-├── formula_student/       # Front wing 2-element (WIP, v2 geometry)
-│   └── ...
-└── piml/                  # Physics-Informed ML roadmap
-    ├── phase0_post_processor/   # ← ACTIVE (Jul–Aug 2026)
-    ├── phase1_surrogate/
-    ├── phase2_pinns/
-    └── phase3_optimization/
+├── piml/                        # CFD × PIML roadmap (core of the repo)
+│   ├── phase0_post_processor/     ✅ CFD post-processor + Verification & Validation
+│   ├── phase1_surrogate/          ✅ neural surrogate (α, Re) → (Cl, Cd)
+│   ├── phase2_pinns/              ✅ PINNs (ODE → Navier–Stokes → airfoil → parametric + panel V&V)
+│   ├── phase3_optimization/       ◻  shape optimization (next)
+│   ├── fs_wing_surrogate/         🏎️ Formula Student wing aero explorer (live tool)
+│   └── references/                📚 PINN/SciML knowledge base (bibliography + playbook)
+├── web/                         # live demo site (Vite + React) → GitHub Pages
+├── naca0012-airfoil-CFD/        # standalone CFD study — NACA 0012 airfoil
+├── front-wing-CFD/              # standalone CFD study — Formula Student front wing
+└── docs/                        # method memos + zero→expert PyTorch guide
 ```
 
-## Active Phase: Phase 0 — Post-Processor
+## Current status (July 2026)
 
-**Period:** July–August 2026 (pre-Erasmus sprint)
-**Stack:** Python 3.x · NumPy 2.5 · Pandas 3.0.3 · Matplotlib 3.11
-**Venv:** `piml/phase0_post_processor/.venv` (already created)
-**Data source:** ANSYS Fluent 2026 R1 NACA 0012 export (Cl/Cd vs α)
+**Phases 0–2 are done ✅** — CFD post-processor + V&V, browser-deployed surrogate + live site, and the
+full PINN suite (ODE → heat → inverse → Burgers → 2-D Navier–Stokes → airfoil → **parametric PINN**
+validated against a **vortex-panel method**, plus a GPU-ready trainer). **Phase 3 (shape optimization)
+is next.** See the roadmap table below.
 
-### Current tasks
-- [ ] Ingest `naca0012_clcd.csv` into Pandas DataFrame
-- [ ] Plot Cl vs α, Cd vs α, polar Cl/Cd
-- [ ] Export figures to `outputs/` for GitHub README
-- [ ] Write `src/postprocessor.py` as reusable module
-- [ ] Finalize Phase 0 README for LiU Formula Student outreach
+**Stack:** Python 3 · PyTorch (CPU) · NumPy · Matplotlib · (Phase 0/1 also Pandas).
+**Venv:** repo-root `.venv` — `source .venv/bin/activate`.
+**PINN knowledge base:** [`piml/references/`](piml/references/) — read before answering PINN questions.
 
 ## Coding Conventions
 

@@ -28,9 +28,10 @@ cfd-projects/
 ├── piml/                       # CFD × ML roadmap (the core of this repo)
 │   ├── phase0_post_processor/    ✅ CFD post-processor + Verification & Validation
 │   ├── phase1_surrogate/         ✅ neural surrogate  (α, Re) → (Cl, Cd)
-│   ├── phase2_pinns/             ◻  physics-informed neural networks (next)
-│   ├── phase3_optimization/      ◻  shape optimization + dashboard
-│   └── fs_wing_surrogate/        🏎️ Formula Student wing aero explorer (live tool)
+│   ├── phase2_pinns/             ✅ physics-informed neural networks (ODE → Navier–Stokes → airfoil)
+│   ├── phase3_optimization/      ◻  shape optimization + dashboard (next)
+│   ├── fs_wing_surrogate/        🏎️ Formula Student wing aero explorer (live tool)
+│   └── references/               📚 PINN / Scientific-ML knowledge base (bibliography + playbook)
 ├── web/                        # the live demo site (Vite + React)
 ├── naca0012-airfoil-CFD/       # standalone CFD study — NACA 0012 airfoil
 ├── front-wing-CFD/             # standalone CFD study — Formula Student front wing
@@ -71,6 +72,7 @@ cfd-projects/
 ## 📚 Docs
 
 - [`docs/pytorch_guide.md`](./docs/pytorch_guide.md) — a self-contained zero → expert PyTorch guide.
+- [`piml/references/`](./piml/references) — curated **PINN / Scientific-ML knowledge base** (annotated bibliography + a practical playbook).
 - [`docs/fluent_reports_NACA0012.md`](./docs/fluent_reports_NACA0012.md) · [`docs/fluent_domain_mesh_NACA0012.md`](./docs/fluent_domain_mesh_NACA0012.md) — Fluent setup memos.
 
 ---
