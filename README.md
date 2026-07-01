@@ -31,6 +31,7 @@ cfd-projects/
 │   ├── phase2_pinns/             ✅ physics-informed neural networks (ODE → Navier–Stokes → airfoil)
 │   ├── phase3_optimization/      ◻  shape optimization + dashboard (next)
 │   ├── fs_wing_surrogate/        🏎️ Formula Student wing aero explorer (live tool)
+│   ├── applied_pinns/            🧩 standalone PINN showcases (e.g. wing-spar deflection)
 │   └── references/               📚 PINN / Scientific-ML knowledge base (bibliography + playbook)
 ├── web/                        # the live demo site (Vite + React)
 ├── naca0012-airfoil-CFD/       # standalone CFD study — NACA 0012 airfoil
