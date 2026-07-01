@@ -13,6 +13,7 @@ machine learning. Its purpose is twofold:
 |---|---|
 | [`bibliography.md`](bibliography.md) | Annotated, grouped bibliography (foundations, reviews, training pathologies, variants, operator learning, CFD applications, software). Every citation checked against the source. |
 | [`pinn_playbook.md`](pinn_playbook.md) | Practical guide: the core recipe, a **failure-mode → fix** diagnostic table, formulation choices, V&V discipline, operator learning, CFD notes — cross-linked to this repo's Phase-2 experiments. |
+| [`theme_classical_cfd_x_pinn.md`](theme_classical_cfd_x_pinn.md) | Thematic note: **bridging classical CFD/numerics with PINNs** (SIMPLE-PINN, SP-PINN, cPINN/XPINN, VPINN, PPINN, RAR…) — a "classical idea → PINN counterpart" map, and Phase-3 hooks. |
 
 ## How it was built
 Anchored on the review **Ganga & Uddin, "Exploring PINNs: From Fundamentals to Applications in Complex
